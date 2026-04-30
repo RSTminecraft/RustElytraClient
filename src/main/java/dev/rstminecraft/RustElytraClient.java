@@ -26,7 +26,6 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -150,7 +149,7 @@ public class RustElytraClient implements ClientModInitializer {
                 client.setScreen(new RSTScr(MinecraftClient.getInstance().currentScreen, getBoolean("FirstUse", true)));
 
             // 自动重装鞘翅，避免鞘翅耐久损耗（无尽鞘翅模式）
-            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.player.isGliding() && client.interactionManager != null && client.getNetworkHandler() != null))) {
+            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.player.isGliding() && client.interactionManager != null && client.getNetworkHandler() != null && (TaskThread.getTaskStatus() == TaskThread.TaskStatus.LANDING || TaskThread.getTaskStatus() == TaskThread.TaskStatus.FLYING)))) {
                 fixEyeHeight = true;
                 scheduleTask((s, a) -> fixEyeHeight = false, 0, 0, 3, 100000);
                 client.player.stopGliding();
@@ -161,7 +160,7 @@ public class RustElytraClient implements ClientModInitializer {
 
         // 自动开始飞行
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
-            if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.interactionManager != null && client.getNetworkHandler() != null))) {
+            if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.interactionManager != null && client.getNetworkHandler() != null && (TaskThread.getTaskStatus() == TaskThread.TaskStatus.LANDING || TaskThread.getTaskStatus() == TaskThread.TaskStatus.FLYING)))) {
                 client.player.startGliding();
                 client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
