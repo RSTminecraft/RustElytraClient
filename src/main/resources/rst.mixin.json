@@ -5,6 +5,7 @@
   "mixins": [
     "BaritoneCheckMixin",
     "BaritoneUpdateTarget",
+    "EntityEyeHeightMixin",
     "PausedTestMixin"
   ],
   "plugin": "dev.rstminecraft.mixin.RstMixinPlugin",

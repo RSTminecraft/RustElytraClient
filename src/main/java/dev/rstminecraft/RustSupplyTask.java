@@ -48,6 +48,8 @@ import static dev.rstminecraft.RustElytraClient.*;
 import static dev.rstminecraft.TaskThread.RunAsMainThread;
 import static dev.rstminecraft.utils.RSTConfig.getBoolean;
 import static dev.rstminecraft.utils.RSTConfig.getInt;
+import dev.rstminecraft.TaskThread.TaskType;
+
 
 
 public class RustSupplyTask {
@@ -863,12 +865,13 @@ public class RustSupplyTask {
      * 补给主函数
      *
      * @param client 客户端对象
-     * @param isXP   是否为经验模式
+     * @param type   补给类型
      * @throws TaskThread.TaskException 通过抛出异常中断
      */
-    static void SupplyTask(@NotNull MinecraftClient client, boolean isXP) throws TaskThread.TaskException, TaskThread.TaskCanceled {
+    static void SupplyTask(@NotNull MinecraftClient client, TaskType type) throws TaskThread.TaskException, TaskThread.TaskCanceled {
         if (client.player == null) throw new TaskThread.TaskException("Player为null");
 
+        TaskThread.status = TaskThread.TaskStatus.SUPPLY;
         Food = FoodList[getInt("FoodIndex", 0)];
 
         timerMultiplier = 1;
@@ -878,17 +881,30 @@ public class RustSupplyTask {
         // 整理物品栏
         ClientPlayerEntity player = client.player;
         if (player == null || client.interactionManager == null) throw new TaskThread.TaskException("player为null");
-        SortAndCheckInv(client, isXP);
+        SortAndCheckInv(client, type == TaskType.EXP_BOTTLE);
         TaskThread.delay(2);
 
 
-        int FireworkInNeed = (int) Math.floor(Math.max(isXP ? 23 * 64 - FireworkSupplyChecker(client) : 21 * 64 - FireworkSupplyChecker(client), 0) / 64.0);
+        int FireworkInNeed = 0;
+        int ElytraInNeed = 0;
+        switch (type){
+            case ELYTRA -> {
+                FireworkInNeed = (int) Math.floor(Math.max(21 * 64 - FireworkSupplyChecker(client), 0) / 64.0);
+                ElytraInNeed = 5 - ElytraSupplyChecker(client, false);
+            }
+            case EXP_BOTTLE -> {
+                FireworkInNeed = (int) Math.floor(Math.max(23 * 64 - FireworkSupplyChecker(client), 0) / 64.0);
+                ElytraInNeed = (int) Math.ceil(Math.max(3 * 64 - ElytraSupplyChecker(client, true), 0) / 64.0);
+            }
+            case INFINITY_ELYTRA -> FireworkInNeed = (int) Math.floor(Math.max(26 * 64 - FireworkSupplyChecker(client), 0) / 64.0);
+        }
 
-        int ElytraInNeed = isXP ? (int) Math.ceil(Math.max(3 * 64 - ElytraSupplyChecker(client, true), 0) / 64.0) : 5 - ElytraSupplyChecker(client, false);
+        boolean hasTotem = client.player.getInventory().getStack(3).getItem() == Items.TOTEM_OF_UNDYING || client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING;
+        boolean hasFood = client.player.getInventory().getStack(5).getItem() == Food && client.player.getInventory().getStack(5).getCount() > 18;
 
-        if (FireworkInNeed == 0 && ElytraInNeed == 0) return;
+        if (FireworkInNeed == 0 && ElytraInNeed == 0 && hasFood && hasTotem) return;
 
-        MsgSender.SendMsg(client.player, "所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.info);
+        MsgSender.SendMsg(client.player, "所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + "组附魔之瓶/鞘翅", MsgLevel.info);
 
         // 扑灭身边火焰
         extinguishFire(client);
@@ -909,7 +925,7 @@ public class RustSupplyTask {
         // 等待末影箱界面
         HandledScreen<?> EnderChestHandled = WaitForScreen(client, EnderChestName);
 
-        int[][] ShulkerData = SupplyShulkerFinder(client, EnderChestHandled, isXP);
+        int[][] ShulkerData = SupplyShulkerFinder(client, EnderChestHandled, type == TaskType.EXP_BOTTLE);
 
         List<Integer> ShulkerList = ComputeShulker(FireworkInNeed, ElytraInNeed, ShulkerData);
         if (ShulkerList.isEmpty()) throw new TaskThread.TaskException("末影箱中物资不足！");
@@ -921,18 +937,34 @@ public class RustSupplyTask {
             ItemStack s = client.player.getInventory().getStack(i);
             if (s.getItem() == Items.FIREWORK_ROCKET) {
                 if (s.getCount() != s.getMaxCount()) continue;
-                if (m < (isXP ? 23 : 21)) {
-                    m++;
-                    continue;
+                switch (type){
+                    case ELYTRA -> {
+                        if (m < 21) {
+                            m++;
+                            continue;
+                        }
+                    }
+                    case EXP_BOTTLE -> {
+                        if(m < 23){
+                            m++;
+                            continue;
+                        }
+                    }
+                    case INFINITY_ELYTRA -> {
+                        if(m < 26){
+                            m++;
+                            continue;
+                        }
+                    }
                 }
                 replaceSlot.add(i);
-            } else if (s.getItem() == Items.EXPERIENCE_BOTTLE && isXP) {
+            } else if (s.getItem() == Items.EXPERIENCE_BOTTLE && type == TaskType.EXP_BOTTLE) {
                 if (s.getCount() == s.getMaxCount() && n < 3) {
                     n++;
                     continue;
                 }
                 replaceSlot.add(i);
-            } else if (s.getItem() == Items.ELYTRA && !isXP) {
+            } else if (s.getItem() == Items.ELYTRA && type == TaskType.ELYTRA) {
                 if (s.getDamage() < 15 && n < 5 && isStackHasEnchantment(s, Enchantments.UNBREAKING, 3)) {
                     n++;
                     continue;
@@ -950,19 +982,19 @@ public class RustSupplyTask {
                 }
             }
             if (slot2 == -1)
-                MsgSender.SendMsg(client.player, "无可用" + Food.getName().getString() + "!", MsgLevel.warning);
+                throw new TaskThread.TaskException("无可用" + Food.getName().getString() + "!");
             else ShulkerList.add(slot2);
         }
         if (client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING) {
             int slot2 = -1, max = 0;
             for (int i = 0; i < 27; i++) {
-                if (ShulkerData[i][2] > max) {
+                if (ShulkerData[i][3] > max) {
                     slot2 = i;
-                    max = ShulkerData[i][2];
+                    max = ShulkerData[i][3];
                 }
             }
             if (slot2 == -1 || max < 2)
-                MsgSender.SendMsg(client.player, "无可用图腾!", MsgLevel.warning);
+                throw new TaskThread.TaskException("无可用图腾!");
             else ShulkerList.add(slot2);
         }
         TaskThread.delay(1);
@@ -1021,7 +1053,7 @@ public class RustSupplyTask {
             // 拿出补给
             int shouldPutOutFirework = Math.min(FireworkInNeed, ShulkerData[SupplySlot][0]);
             int shouldPutOutElytra = Math.min(ElytraInNeed, ShulkerData[SupplySlot][1]);
-            PutOutSupply(client, ShulkerHandled.getScreenHandler(), replaceSlot, isXP, shouldPutOutFirework, shouldPutOutElytra);
+            PutOutSupply(client, ShulkerHandled.getScreenHandler(), replaceSlot, type == TaskType.EXP_BOTTLE, shouldPutOutFirework, shouldPutOutElytra);
             MsgSender.SendMsg(client.player, "取出补给物品成功", MsgLevel.tip);
             FireworkInNeed -= shouldPutOutFirework;
             ElytraInNeed -= shouldPutOutElytra;
