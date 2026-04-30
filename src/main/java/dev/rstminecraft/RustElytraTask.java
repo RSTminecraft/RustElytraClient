@@ -289,7 +289,7 @@ public class RustElytraTask {
         }
 
 
-        if (inFireTick > 20 || inFireTick > 5 && !client.player.isFallFlying()) {
+        if (inFireTick > 20 || inFireTick > 5 && !client.player.isGliding()) {
             // 位于岩浆中？自动逃离岩浆
             inFireTick = -45;
             // 打开鞘翅
@@ -445,7 +445,7 @@ public class RustElytraTask {
         boolean nearGround = false;
         if (client.player == null || client.getNetworkHandler() == null || client.interactionManager == null)
             throw new TaskException("关键对象不能为null");
-        if (!client.player.isFallFlying()) {
+        if (!client.player.isGliding()) {
             elytraTakeoff(client);
             nearGround = true;
         }
@@ -535,7 +535,7 @@ public class RustElytraTask {
             while (!(client.player.getBlockPos().isWithinDistance(TakePos, 1.5) || (Vec3d.of(TakePos).subtract(client.player.getPos()).dotProduct(client.player.getVelocity()) < 0))) {
                 if (client.player.isInLava()) inLavaTicks.accumulate();
                 if (inLavaTicks.getCount() > 15) throw new TaskException("玩家在飞往开阔地带的路上飞入岩浆");
-                if (!client.player.isFallFlying()) {
+                if (!client.player.isGliding()) {
                     List<BlockPos> bp1 = RunAsMainThread(() -> getPotentialJumpBlockingBlocks(1));
                     if (!bp1.isEmpty()) clearBlockingBlock(client, x, z, bp1);
                     elytraTakeoff(client);
@@ -581,7 +581,7 @@ public class RustElytraTask {
     private static void FlightStatusCheck(@NotNull MinecraftClient client, int x, int z) {
         if (client.player == null) throw new TaskException("player不能为null");
         if (!BaritoneControlChecker.isControlPlayer()) {
-            if (client.player.isFallFlying()) {
+            if (client.player.isGliding()) {
                 if (paused[0]) return;
                 baritoneControlCounter.accumulate();
                 if (baritoneControlCounter.getCount() > 15) {
