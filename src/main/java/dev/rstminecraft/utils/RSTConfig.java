@@ -37,6 +37,9 @@ public class RSTConfig {//    模组配置相关函数，模组配置采用.json
                 config.addProperty("verboseDisplayDebug", false);
                 config.addProperty("FoodIndex", 0);
                 config.addProperty("autoLogEnabled",false);
+                config.addProperty("HudX",0);
+                config.addProperty("HudY",0);
+                config.addProperty("enableHud",true);
                 saveConfig();
             }
         } catch (IOException e) {

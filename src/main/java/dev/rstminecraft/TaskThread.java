@@ -4,10 +4,12 @@ import baritone.api.BaritoneAPI;
 import dev.rstminecraft.utils.MsgLevel;
 import dev.rstminecraft.utils.RSTTask;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.s2c.common.DisconnectS2CPacket;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,23 +25,30 @@ public class TaskThread extends Thread {
     private static @Nullable TaskThread ModThread = null;
     private final int TargetX, TargetZ;
     private final boolean isAutoLog, isAutoLogOnSeg1;
-    private final boolean isXP;
+    public final TaskType type;
+    private final BlockPos StartPos;
+    private final int startTick;
+
+    public static TaskStatus status;
+
 
     /**
      * private的构造函数，用于阻止本class外的函数新建Mod线程，即只有零个/一个Mod线程（单例模式）
      *
-     * @param isXP            是否需要XP补给
+     * @param type            补给类型
      * @param isAutoLog       是否自动退出
      * @param isAutoLogOnSeg1 是否在第一段自动退出
      * @param TargetX         目标X坐标
      * @param TargetZ         目标Z坐标
      */
-    private TaskThread(boolean isXP, boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ) {
-        this.isXP = isXP;
+    private TaskThread(TaskType type, boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ, BlockPos StartPos) {
+        this.type = type;
         this.isAutoLog = isAutoLog;
         this.isAutoLogOnSeg1 = isAutoLogOnSeg1;
         this.TargetX = TargetX;
         this.TargetZ = TargetZ;
+        this.StartPos = StartPos;
+        this.startTick = currentTick;
     }
 
     /**
@@ -60,6 +69,30 @@ public class TaskThread extends Thread {
         return ModThread != null;
     }
 
+    public static double TaskRemainDistance(@NotNull ClientPlayerEntity player) {
+        if (getModThread() == null) return -1;
+        return Math.sqrt(new BlockPos(getModThread().TargetX, 0, getModThread().TargetZ).getSquaredDistance(player.getBlockPos()));
+    }
+
+    public static double TaskFlyDistance(@NotNull ClientPlayerEntity player) {
+        if (getModThread() == null) return -1;
+        return Math.sqrt(getModThread().StartPos.getSquaredDistance(player.getBlockPos()));
+    }
+
+    public static double TaskAverageSpeed(@NotNull ClientPlayerEntity player) {
+        if (getModThread() == null) return -1;
+        return TaskFlyDistance(player) / (currentTick - getModThread().startTick) * 20;
+    }
+
+    public static double TaskRemainSecond(@NotNull ClientPlayerEntity player) {
+        if (getModThread() == null) return -1;
+        return TaskRemainDistance(player) / TaskAverageSpeed(player);
+    }
+
+    public static TaskStatus getTaskStatus(){
+        if(!isThreadRunning()) return TaskStatus.NO_TASK;
+        return status;
+    }
     /**
      * 启动一个新鞘翅补给模式的任务
      *
@@ -68,23 +101,12 @@ public class TaskThread extends Thread {
      * @param TargetX         目标X坐标
      * @param TargetZ         目标Z坐标
      */
-    public static void StartModThread_ELY(boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ) {
-        ModThread = new TaskThread(false, isAutoLog, isAutoLogOnSeg1, TargetX, TargetZ);
+    public static void StartModThread(TaskType type, boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ, BlockPos startPos) {
+        ModThread = new TaskThread(type, isAutoLog, isAutoLogOnSeg1, TargetX, TargetZ, startPos);
+        status = TaskStatus.START;
         ModThread.start();
     }
 
-    /**
-     * 启动一个附魔之瓶补给模式的任务
-     *
-     * @param isAutoLog       是否自动退出
-     * @param isAutoLogOnSeg1 是否在第一段自动退出
-     * @param TargetX         目标X坐标
-     * @param TargetZ         目标Z坐标
-     */
-    public static void StartModThread_XP(boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ) {
-        ModThread = new TaskThread(true, isAutoLog, isAutoLogOnSeg1, TargetX, TargetZ);
-        ModThread.start();
-    }
 
     /**
      * 用于在Mod线程中延迟几个tick
@@ -109,6 +131,7 @@ public class TaskThread extends Thread {
             }
         }
     }
+
 
     /**
      * 在主线程(MC Render Thread)运行一个lambda(无参数,不定类型返回值)
@@ -135,6 +158,7 @@ public class TaskThread extends Thread {
             throw new TaskException("任务执行异常");
         }
     }
+
     public static <T> T RunAsMainThread2(@NotNull Supplier<T> lambda) {
         if (Thread.currentThread() != ModThread) return lambda.get();
 
@@ -176,8 +200,7 @@ public class TaskThread extends Thread {
         MinecraftClient.getInstance().options.jumpKey.setPressed(false);
         MinecraftClient.getInstance().options.useKey.setPressed(false);
 
-        if (BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().isActive() ||
-                BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive())
+        if (BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().isActive() || BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive())
             RunAsMainThread(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
         if (seg == -1 && isAutoLogOnSeg1 || seg != -1 && isAutoLog) {
             MutableText text = Text.literal("[RSTAutoLog] ");
@@ -234,7 +257,7 @@ public class TaskThread extends Thread {
 
                 // 开启补给任务
                 try {
-                    RustSupplyTask.SupplyTask(client, isXP);
+                    RustSupplyTask.SupplyTask(client, type);
                     synchronized (FireballTask) {
                         FireballTask.repeatTimes = -2;
                     }
@@ -261,16 +284,16 @@ public class TaskThread extends Thread {
 
 
                 RSTTask AutoLogTask = scheduleTask((self, args) -> {
-                    if(client.player != null && autoLogEnabled && TaskThread.isThreadRunning()){
-                        if(client.player.getHealth() < 3.5){
+                    if (client.player != null && autoLogEnabled && TaskThread.isThreadRunning()) {
+                        if (client.player.getHealth() < 3.5) {
                             int count = 0;
-                            for(int i = 0;i<45;i++){
-                                if(client.player.getInventory().getStack(i).getItem() == Items.TOTEM_OF_UNDYING)
+                            for (int i = 0; i < 45; i++) {
+                                if (client.player.getInventory().getStack(i).getItem() == Items.TOTEM_OF_UNDYING)
                                     count += client.player.getInventory().getStack(i).getCount();
                             }
-                            if(count <= 1){
+                            if (count <= 1) {
                                 autoLogEnabled = false;
-                                setBoolean("autoLogEnabled",false);
+                                setBoolean("autoLogEnabled", false);
                                 ModStatus = ModStatuses.canceled;
                                 self.repeatTimes = 0;
                                 taskFailed(client, "AutoLog图腾数量过少且血量过低！", finalNowSeg);
@@ -280,9 +303,9 @@ public class TaskThread extends Thread {
                 }, 1, -1, 1, 100);
                 // 开启鞘翅任务
                 try {
-                    if (RustElytraTask.ElytraTask(client, this.TargetX, this.TargetZ, isXP)) {
+                    if (RustElytraTask.ElytraTask(client, this.TargetX, this.TargetZ, type)) {
                         MsgSender.SendMsg(client.player, "到达目的地！圆满完成！！！", MsgLevel.warning);
-                        if(isAutoLog) {
+                        if (isAutoLog) {
                             MutableText text = Text.literal("[RSTAutoLog] ");
                             text.append(Text.literal("已经到达目的地"));
                             if (client.player != null) {
@@ -317,10 +340,18 @@ public class TaskThread extends Thread {
                 }
             } catch (NullPointerException e) {
                 e.printStackTrace();
-                taskFailed(client,e.getMessage(),nowSeg);
+                taskFailed(client, e.getMessage(), nowSeg);
                 return;
             }
         }
+    }
+
+    public enum TaskType {
+        EXP_BOTTLE, ELYTRA, INFINITY_ELYTRA
+    }
+
+    public enum TaskStatus{
+        NO_TASK,START, SUPPLY, FLYING,LANDING,REPAIR_ELYTRA
     }
 
     // 一个异常：用于表达任务异常
