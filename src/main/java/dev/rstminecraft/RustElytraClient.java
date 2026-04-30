@@ -154,10 +154,6 @@ public class RustElytraClient implements ClientModInitializer {
                 fixEyeHeight = true;
                 scheduleTask((s, a) -> fixEyeHeight = false, 0, 0, 3, 100000);
                 client.player.stopGliding();
-                for(int i = 0;i<3;i++) {
-                    client.interactionManager.clickSlot(client.player.currentScreenHandler.syncId, 6, 0, SlotActionType.PICKUP, client.player);
-                    client.interactionManager.clickSlot(client.player.currentScreenHandler.syncId, 6, 0, SlotActionType.PICKUP, client.player);
-                }
                 client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
             BaritoneControlChecker.lookFlag = false;
@@ -166,8 +162,8 @@ public class RustElytraClient implements ClientModInitializer {
         // 自动开始飞行
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.interactionManager != null && client.getNetworkHandler() != null))) {
+                client.player.startGliding();
                 client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
-                client.player.stopGliding();
             }
         });
         // 本命令用于进入主菜单GUI(也可以通过上方按键进入)
