@@ -150,10 +150,10 @@ public class RustElytraClient implements ClientModInitializer {
                 client.setScreen(new RSTScr(MinecraftClient.getInstance().currentScreen, getBoolean("FirstUse", true)));
 
             // 自动重装鞘翅，避免鞘翅耐久损耗（无尽鞘翅模式）
-            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.player.isFallFlying() && client.interactionManager != null && client.getNetworkHandler() != null))) {
+            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.player.isGliding() && client.interactionManager != null && client.getNetworkHandler() != null))) {
                 fixEyeHeight = true;
                 scheduleTask((s, a) -> fixEyeHeight = false, 0, 0, 3, 100000);
-                client.player.stopFallFlying();
+                client.player.stopGliding();
                 for(int i = 0;i<3;i++) {
                     client.interactionManager.clickSlot(client.player.currentScreenHandler.syncId, 6, 0, SlotActionType.PICKUP, client.player);
                     client.interactionManager.clickSlot(client.player.currentScreenHandler.syncId, 6, 0, SlotActionType.PICKUP, client.player);
@@ -167,7 +167,7 @@ public class RustElytraClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.interactionManager != null && client.getNetworkHandler() != null))) {
                 client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
-                client.player.startFallFlying();
+                client.player.startGliding();
             }
         });
         // 本命令用于进入主菜单GUI(也可以通过上方按键进入)
