@@ -239,7 +239,7 @@ public class RustElytraTask {
             if (slot2 == -1) throw new TaskException("没有足够的食物了！");
             int finalSlot = slot2;
             RunAsMainThread(() -> {
-                client.player.getInventory().selectedSlot = finalSlot;
+                client.player.getInventory().setSelectedSlot(finalSlot);
                 client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlot));
                 client.options.useKey.setPressed(true);
             });
@@ -289,7 +289,7 @@ public class RustElytraTask {
         }
 
 
-        if (inFireTick > 20 || inFireTick > 5 && !client.player.isFallFlying()) {
+        if (inFireTick > 20 || inFireTick > 5 && !client.player.isGliding()) {
             // 位于岩浆中？自动逃离岩浆
             inFireTick = -45;
             // 打开鞘翅
@@ -319,7 +319,7 @@ public class RustElytraTask {
                     // 切换到烟花所在格子
                     int finalSlots = slots;
                     RunAsMainThread(() -> {
-                        client.player.getInventory().selectedSlot = finalSlots;
+                        client.player.getInventory().setSelectedSlot(finalSlots);
                         client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlots));
                         client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
                     });
@@ -445,7 +445,7 @@ public class RustElytraTask {
         boolean nearGround = false;
         if (client.player == null || client.getNetworkHandler() == null || client.interactionManager == null)
             throw new TaskException("关键对象不能为null");
-        if (!client.player.isFallFlying()) {
+        if (!client.player.isGliding()) {
             elytraTakeoff(client);
             nearGround = true;
         }
@@ -480,7 +480,7 @@ public class RustElytraTask {
                 throw new TaskException("没有足够的烟花飞往开阔地带！");
             }
 
-            client.player.getInventory().selectedSlot = i2;
+            client.player.getInventory().setSelectedSlot(i2);
             client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(i2));
 
             if (yh != 0) {
@@ -535,7 +535,7 @@ public class RustElytraTask {
             while (!(client.player.getBlockPos().isWithinDistance(TakePos, 1.5) || (Vec3d.of(TakePos).subtract(client.player.getPos()).dotProduct(client.player.getVelocity()) < 0))) {
                 if (client.player.isInLava()) inLavaTicks.accumulate();
                 if (inLavaTicks.getCount() > 15) throw new TaskException("玩家在飞往开阔地带的路上飞入岩浆");
-                if (!client.player.isFallFlying()) {
+                if (!client.player.isGliding()) {
                     List<BlockPos> bp1 = RunAsMainThread(() -> getPotentialJumpBlockingBlocks(1));
                     if (!bp1.isEmpty()) clearBlockingBlock(client, x, z, bp1);
                     elytraTakeoff(client);
@@ -581,7 +581,7 @@ public class RustElytraTask {
     private static void FlightStatusCheck(@NotNull MinecraftClient client, int x, int z) {
         if (client.player == null) throw new TaskException("player不能为null");
         if (!BaritoneControlChecker.isControlPlayer()) {
-            if (client.player.isFallFlying()) {
+            if (client.player.isGliding()) {
                 if (paused[0]) return;
                 baritoneControlCounter.accumulate();
                 if (baritoneControlCounter.getCount() > 15) {
@@ -715,7 +715,7 @@ public class RustElytraTask {
         if (client.player == null || client.world == null || client.interactionManager == null || client.getNetworkHandler() == null)
             throw new TaskException("null!");
         if (noElytra) return;
-        ItemStack ElytraStack = client.player.getInventory().getArmorStack(2);
+        ItemStack ElytraStack = client.player.getInventory().getStack(38);
         if (ElytraStack.getItem() != Items.ELYTRA) throw new TaskException("未穿戴鞘翅!");
         if (ElytraStack.getDamage() > ElytraStack.getMaxDamage() - 40) {
             if (Objects.equals(client.world.getBiome(client.player.getBlockPos()).getKey().map(RegistryKey::getValue).orElse(null), Identifier.of("minecraft", "nether_wastes"))) {
@@ -784,7 +784,7 @@ public class RustElytraTask {
                 client.player.setPitch(90);
                 // 切换槽位
                 RunAsMainThread(() -> {
-                    client.player.getInventory().selectedSlot = FireworkSlot;
+                    client.player.getInventory().setSelectedSlot(FireworkSlot);
                     client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(FireworkSlot));
                 });
                 // 火球保护
@@ -800,7 +800,7 @@ public class RustElytraTask {
                 MsgSender.SendMsg(client.player, "开始修复", MsgLevel.tip);
                 // 至多40个附魔之瓶修复
                 for (int i = 0; i < 40; i++) {
-                    if (client.player.getInventory().getArmorStack(2).getDamage() < 25) break;
+                    if (client.player.getInventory().getStack(38).getDamage() < 25) break;
                     if (i == 39) {
                         FireballTask.repeatTimes = 0;
                         throw new TaskException("修补鞘翅异常");
