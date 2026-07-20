@@ -353,7 +353,7 @@ public class RustElytraTask {
         ClientPlayerEntity player = client.player;
 
         // 获取玩家头部位置
-        Vec3d playerPos = player.getPos();
+        Vec3d playerPos = player.getEntityPos();
         double headX = playerPos.x;
         double headZ = playerPos.z;
         double headY = playerPos.y + player.getStandingEyeHeight();
@@ -486,11 +486,11 @@ public class RustElytraTask {
             if (yh != 0) {
                 client.player.setPitch(-90);
                 client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-                TrajectoryRenderer.drawTrajectory(predictPath(20, client.player.getPos(), client.player.getVelocity(), getLookVec(0, -90)));
-                TrajectoryRenderer.markPos(BlockPos.ofFloored(client.player.getPos().add(0, (int) yh, 0)).add(0, 1, 0));
-                Vec3d targetPos = client.player.getPos().add(0, yh, 0);
+                TrajectoryRenderer.drawTrajectory(predictPath(20, client.player.getEntityPos(), client.player.getVelocity(), getLookVec(0, -90)));
+                TrajectoryRenderer.markPos(BlockPos.ofFloored(client.player.getEntityPos().add(0, (int) yh, 0)).add(0, 1, 0));
+                Vec3d targetPos = client.player.getEntityPos().add(0, yh, 0);
                 for (int i = 0; i < 12; i++) {
-                    if (client.player.getPos().getY() > targetPos.getY()) break;
+                    if (client.player.getEntityPos().getY() > targetPos.getY()) break;
                     else if (i == 11) continue TakeTimeLoop;
 
                     if (BaritoneControlChecker.isControlPlayer()) {
@@ -503,7 +503,7 @@ public class RustElytraTask {
 
                 cameraMixinSwitch = true;
                 int tick = currentTick;
-                while (client.player.getPos().getY() > targetPos.getY() + 0.5) {
+                while (client.player.getEntityPos().getY() > targetPos.getY() + 0.5) {
                     fixedYaw = client.player.getYaw() + (180 * ((currentTick - tick) % 2));
                     fixedPitch = 0;
                     RunAsMainThread(() -> {
@@ -527,12 +527,12 @@ public class RustElytraTask {
             client.player.setYaw(t.yaw);
             client.player.setPitch(t.pitch);
             client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-            TrajectoryRenderer.drawTrajectory(predictPath(40, client.player.getPos(), client.player.getVelocity(), getLookVec(t.yaw, t.pitch)));
+            TrajectoryRenderer.drawTrajectory(predictPath(40, client.player.getEntityPos(), client.player.getVelocity(), getLookVec(t.yaw, t.pitch)));
             TrajectoryRenderer.markPos(t.end);
 
             BlockPos TakePos = t.end;
             TaskThread.delay(1);
-            while (!(client.player.getBlockPos().isWithinDistance(TakePos, 1.5) || (Vec3d.of(TakePos).subtract(client.player.getPos()).dotProduct(client.player.getVelocity()) < 0))) {
+            while (!(client.player.getBlockPos().isWithinDistance(TakePos, 1.5) || (Vec3d.of(TakePos).subtract(client.player.getEntityPos()).dotProduct(client.player.getVelocity()) < 0))) {
                 if (client.player.isInLava()) inLavaTicks.accumulate();
                 if (inLavaTicks.getCount() > 15) throw new TaskException("玩家在飞往开阔地带的路上飞入岩浆");
                 if (!client.player.isGliding()) {
@@ -561,7 +561,7 @@ public class RustElytraTask {
         MsgSender.SendMsg(client.player, "头顶有方块阻挡，正在清除障碍", MsgLevel.tip);
         RunAsMainThread(() -> {
             BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
-            BaritoneAPI.getProvider().getPrimaryBaritone().getBuilderProcess().clearArea(new BlockPos((int) Math.floor(client.player.getPos().getX() - 0.3), bp.getFirst().getY(), (int) Math.floor(client.player.getPos().getZ() - 0.3)), new BlockPos((int) Math.floor(client.player.getPos().getX() - 0.3) + 1, bp.getFirst().getY() + 1, (int) Math.floor(client.player.getPos().getZ() - 0.3) + 1));
+            BaritoneAPI.getProvider().getPrimaryBaritone().getBuilderProcess().clearArea(new BlockPos((int) Math.floor(client.player.getEntityPos().getX() - 0.3), bp.getFirst().getY(), (int) Math.floor(client.player.getEntityPos().getZ() - 0.3)), new BlockPos((int) Math.floor(client.player.getEntityPos().getX() - 0.3) + 1, bp.getFirst().getY() + 1, (int) Math.floor(client.player.getEntityPos().getZ() - 0.3) + 1));
         });
         for (int i = 0; i < 200; i++) {
             if (client.player == null) return;

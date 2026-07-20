@@ -66,7 +66,7 @@ public class RustSupplyTask {
         while (true) {
             BlockPos footBlock = client.player.getBlockPos();
             Vec3d CenterPos = new Vec3d(footBlock.getX() + 0.5, client.player.getY(), footBlock.getZ() + 0.5);
-            Vec3d current = client.player.getPos();
+            Vec3d current = client.player.getEntityPos();
             Vec3d delta = CenterPos.subtract(current);
             // 到达方块中心则停止
             if (Math.abs(delta.x) < 0.2 && Math.abs(delta.z) < 0.2) {
@@ -89,10 +89,8 @@ public class RustSupplyTask {
             return 0;
         }
 
-        FireworksComponent fireworks = stack.get(DataComponentTypes.FIREWORKS);
-
-        if (fireworks != null) {
-            return fireworks.flightDuration();
+        if (stack.get(DataComponentTypes.FIREWORKS) instanceof FireworksComponent(int duration, var explosions)) {
+            return duration;
         }
 
         return 0;
@@ -304,7 +302,7 @@ public class RustSupplyTask {
      */
     private static @Nullable BlockPos findPlaceTarget(@NotNull ClientPlayerEntity player) {
         BlockPos origin = player.getBlockPos();
-        World world = player.getWorld();
+        World world = player.getEntityWorld();
 
         // 搜索范围：以玩家为中心的 3×3×3 区域
         int radius = 1;

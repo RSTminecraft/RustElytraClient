@@ -43,7 +43,7 @@ class RSTFireballProtect {
         if (client.player == null || client.world == null || client.interactionManager == null) {
             return new ArrayList<>();
         }
-        Vec3d playerPos = client.player.getPos();
+        Vec3d playerPos = client.player.getEntityPos();
         double Range = client.player.getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE) + 0.8;
         Box detectionBox = new Box(
                 playerPos.x - Range,
@@ -84,7 +84,7 @@ class RSTFireballProtect {
             BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("p");
             flag = true;
             ignoreFireball.add(fireball.getUuid());
-            Vec3d target = fireball.getPos().add(0, 0.5, 0);
+            Vec3d target = fireball.getEntityPos().add(0, 0.5, 0);
             Vec3d eyePos = client.player.getEyePos();
             double dx = target.x - eyePos.x;
             double dy = target.y - eyePos.y;

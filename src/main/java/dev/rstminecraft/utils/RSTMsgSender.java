@@ -40,6 +40,4 @@ public class RSTMsgSender {
         player.sendMessage(Text.literal(LevelStr[level.ordinal()] + msg + "§r"), false);
         logger[level.ordinal()].log("[Rust Elytra Log]" + msg);
     }
-
-
 }

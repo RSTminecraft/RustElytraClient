@@ -47,7 +47,7 @@ public class FindPathToOpen {
         }
 
         // 从玩家眼睛位置出发
-        Vec3d start = player.getPos().add(0,yh,0);
+        Vec3d start = player.getEntityPos().add(0,yh,0);
         Vec3d startv = player.getVelocity();
 
         // 生成26个基本方向（归一化向量）

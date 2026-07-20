@@ -26,6 +26,7 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
+import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -42,7 +43,8 @@ import static dev.rstminecraft.utils.RSTTask.tick;
 public class RustElytraClient implements ClientModInitializer {
     public static final Logger MODLOGGER = LoggerFactory.getLogger("rust-elytra-client");
     public static final AtomicReference<TaskHolder<?>> currentTask = new AtomicReference<>();
-    public static final Item[] FoodList = {Items.GOLDEN_CARROT, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_CHICKEN};
+    public static final Item[] FoodList = {Items.GOLDEN_CARROT, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE,
+            Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_CHICKEN};
     static final Object ThreadLock = new Object();
     public static int currentTick = 0;
     public static boolean autoLogEnabled = false;
@@ -65,7 +67,7 @@ public class RustElytraClient implements ClientModInitializer {
     public static RSTMsgSender MsgSender;
     public static KeyBinding openCustomScreenKey;
     public static KeyBinding elytraDebugKey;
-
+    static int flag = 0;
     static @NotNull ModStatuses ModStatus = ModStatuses.idle;
     FabricLoader loader = FabricLoader.getInstance();
 
@@ -82,13 +84,17 @@ public class RustElytraClient implements ClientModInitializer {
         HudY = getInt("HudY", 0);
         enableHud = getBoolean("enableHud", true);
         // GUI按键注册
-        openCustomScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("RST Auto Elytra Mod主界面", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "RST Auto Elytra Mod"));
-        elytraDebugKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("RST Auto Elytra Mod无尽鞘翅调试按钮", InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), "RST Auto Elytra Mod"));
+        KeyBinding.Category RST_CATEGORY = KeyBinding.Category.create(Identifier.of("rst_auto_elytra", "general"));
+        openCustomScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("RST Auto Elytra Mod主界面",
+                InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, RST_CATEGORY));
+        elytraDebugKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("RST Auto Elytra Mod无尽鞘翅调试按钮",
+                InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), RST_CATEGORY));
         TrajectoryRenderer.init();
 
         HudRenderCallback.EVENT.register((DrawContext context, RenderTickCounter tickCounter) -> {
             MinecraftClient client = MinecraftClient.getInstance();
-            if (!enableHud || TaskThread.getModThread() == null || client.player == null) return;
+            if (!enableHud || TaskThread.getModThread() == null || client.player == null)
+                return;
             StringBuilder sb = new StringBuilder();
             sb.append("当前状态:");
             switch (TaskThread.getModThread().type) {
@@ -107,7 +113,7 @@ public class RustElytraClient implements ClientModInitializer {
             sb.append('\n');
             sb.append("已飞行距离:").append(String.format("%.2f", TaskThread.TaskFlyDistance(client.player))).append('\n');
             sb.append("剩余飞行距离:").append(String.format("%.2f", TaskThread.TaskRemainDistance(client.player))).append('\n');
-            sb.append("平均飞行速度:").append(String.format("%.2f", TaskThread.TaskAverageSpeed(client.player))).append(" m/s\n");
+            sb.append("平均飞行速度:").append(String.format("%.2f", TaskThread.TaskAverageSpeed(client.player))).append(" " + "m/s\n");
             int second = (int) TaskThread.TaskRemainSecond(client.player); //这是随便输入的秒值
             int hour = second / 3600; // 得到分钟数
             second = second % 3600;//剩余的秒数
@@ -116,7 +122,8 @@ public class RustElytraClient implements ClientModInitializer {
             sb.append(String.format("预计剩余时间:%02d:%02d:%02d", hour, minute, second));
             String[] strs = sb.toString().split("\n");
             for (int i = 0; i < strs.length; i++) {
-                context.drawText(MinecraftClient.getInstance().textRenderer, strs[i], HudX, HudY + 10 * i, 0xFFFFFFFF, false);
+                context.drawText(MinecraftClient.getInstance().textRenderer, strs[i], HudX, HudY + 10 * i, 0xFFFFFFFF
+                        , false);
             }
         });
 
@@ -136,16 +143,12 @@ public class RustElytraClient implements ClientModInitializer {
                         }
                     }
                 } catch (NullPointerException e) {
-                    if (!e.getMessage().contains("TaskThread.getState")) throw e;
+                    if (!e.getMessage().contains("TaskThread.getState"))
+                        throw e;
                 }
             }
             tick();
-//            MODLOGGER.error(String.valueOf(currentTick));
-//
-//            if (client.player != null) {
-//                MsgSender.SendMsg(client.player, String.valueOf(BaritoneControlChecker.isControlPlayer()),MsgLevel.warning);
-//            }
-            if (client.player != null && openCustomScreenKey.isPressed())
+            if (client.player != null && (openCustomScreenKey.isPressed()))
                 client.setScreen(new RSTScr(MinecraftClient.getInstance().currentScreen, getBoolean("FirstUse", true)));
 
             // 自动重装鞘翅，避免鞘翅耐久损耗（无尽鞘翅模式）
@@ -153,7 +156,8 @@ public class RustElytraClient implements ClientModInitializer {
                 fixEyeHeight = true;
                 scheduleTask((s, a) -> fixEyeHeight = false, 0, 0, 3, 100000);
                 client.player.stopGliding();
-                client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player,
+                        ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
             BaritoneControlChecker.lookFlag = false;
         });
@@ -162,7 +166,8 @@ public class RustElytraClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.interactionManager != null && client.getNetworkHandler() != null && (TaskThread.getTaskStatus() == TaskThread.TaskStatus.LANDING || TaskThread.getTaskStatus() == TaskThread.TaskStatus.FLYING)))) {
                 client.player.startGliding();
-                client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player,
+                        ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
         });
         // 本命令用于进入主菜单GUI(也可以通过上方按键进入)
@@ -210,7 +215,8 @@ public class RustElytraClient implements ClientModInitializer {
         }
 
         T getResult() {
-            if (error != null) throw new TaskThread.TaskException(error.getMessage());
+            if (error != null)
+                throw new TaskThread.TaskException(error.getMessage());
             return result;
         }
     }
