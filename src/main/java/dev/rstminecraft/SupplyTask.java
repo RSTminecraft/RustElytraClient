@@ -859,7 +859,7 @@ public class SupplyTask {
      * @param type   补给类型
      * @throws TaskException 通过抛出异常中断
      */
-    static void SupplyTask(@NotNull MinecraftClient client, TaskType type) throws TaskException, TaskCanceled {
+    static void supplyTask(@NotNull MinecraftClient client, TaskType type) throws TaskException, TaskCanceled {
         if (client.player == null) throw new TaskException("Player为null");
 
         status = TaskStatus.SUPPLY;

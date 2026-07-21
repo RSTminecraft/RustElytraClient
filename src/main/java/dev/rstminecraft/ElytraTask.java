@@ -978,7 +978,7 @@ public class ElytraTask {
      * @throws TaskException 任务异常
      * @throws TaskCanceled  任务中止
      */
-    static boolean ElytraTask(@NotNull MinecraftClient client, int x, int z,
+    static boolean elytraTask(@NotNull MinecraftClient client, int x, int z,
                               TaskType type) throws TaskException, TaskCanceled {
         boolean verboseDisplayDebug = config.getBoolean("verboseDisplayDebug", false);
         Food = FoodList[config.getInt("FoodIndex", 0)];

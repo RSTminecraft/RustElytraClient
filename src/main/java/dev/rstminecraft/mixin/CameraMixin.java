@@ -2,7 +2,6 @@ package dev.rstminecraft.mixin;
 
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;
-import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,6 +18,7 @@ public abstract class CameraMixin {
 
     @Inject(method = "update", at = @At("TAIL"))
     private void overrideVisualRotation(World world, Entity entity, boolean bl, boolean bl2, float f, CallbackInfo ci) {
-        if(cameraMixinSwitch) this.setRotation(fixedYaw, fixedPitch);
+        if (cameraMixinSwitch)
+            this.setRotation(fixedYaw, fixedPitch);
     }
 }

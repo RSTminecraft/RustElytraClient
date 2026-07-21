@@ -12,9 +12,10 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 
+import static dev.rstminecraft.ElytraTask.elytraTask;
 import static dev.rstminecraft.FireballProtect.FireballProtector;
 import static dev.rstminecraft.RustElytraClient.*;
-import static dev.rstminecraft.SupplyTask.SupplyTask;
+import static dev.rstminecraft.SupplyTask.supplyTask;
 
 public class ModTask {
     public static TaskType type;
@@ -152,7 +153,7 @@ public class ModTask {
 
             // 开启补给任务
             try {
-                SupplyTask(client, type);
+                supplyTask(client, type);
                 // 关闭保护任务
                 protectThread.interrupt();
                 ModTaskManager.delay(1);
@@ -180,7 +181,7 @@ public class ModTask {
             protectThread = ModTaskManager.startThread(() -> ElytraTaskProtector(client, finalNowSeg));
             // 开启鞘翅任务
             try {
-                if (ElytraTask.ElytraTask(client, TargetX, TargetZ, type)) {
+                if (elytraTask(client, TargetX, TargetZ, type)) {
                     msg.SendMsg(client.player, "到达目的地！圆满完成！！！", MsgLevel.warning);
                     if (isAutoLog) {
                         MutableText text = Text.literal("[RSTAutoLog] ");
