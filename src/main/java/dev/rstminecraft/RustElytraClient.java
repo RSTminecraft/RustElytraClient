@@ -18,7 +18,8 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -34,6 +35,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
+
+import static dev.rstminecraft.ModHud.DrawHud;
 
 public class RustElytraClient implements ClientModInitializer {
     public static final Logger MODLOGGER = LoggerFactory.getLogger("rust-elytra-client");
@@ -102,8 +105,11 @@ public class RustElytraClient implements ClientModInitializer {
                                InputUtil.UNKNOWN_KEY.getCode(), RST_CATEGORY));
         TrajectoryRenderer.init();
 
-        HudRenderCallback.EVENT.register((context, tickCounter) -> ModHud.DrawHud(context));
-
+        HudElementRegistry.attachElementBefore(
+                VanillaHudElements.CHAT,
+                Identifier.of("rust_elytra_client", "hud_layer"),
+                (context, tickCounter) -> DrawHud(context)
+        );
         // tick末事件注册
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             currentTick++;

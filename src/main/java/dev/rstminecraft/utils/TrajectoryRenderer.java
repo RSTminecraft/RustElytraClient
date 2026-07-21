@@ -1,8 +1,11 @@
 package dev.rstminecraft.utils;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.minecraft.client.render.*;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -39,16 +42,15 @@ public class TrajectoryRenderer {
     }
 
     private static void renderPos(@NotNull WorldRenderContext context) {
-        if (MARKED_POSITIONS.isEmpty()) return;
+        if (MARKED_POSITIONS.isEmpty())
+            return;
 
-        MatrixStack matrices = context.matrixStack();
-        VertexConsumerProvider consumers = context.consumers();
-        if (consumers == null) return;
+        MatrixStack matrices = context.matrices();
 
         // 获取相机的偏移量，将坐标系对齐到世界坐标
-        double camX = context.camera().getCameraPos().x;
-        double camY = context.camera().getCameraPos().y;
-        double camZ = context.camera().getCameraPos().z;
+        double camX = context.gameRenderer().getCamera().getCameraPos().x;
+        double camY = context.gameRenderer().getCamera().getCameraPos().y;
+        double camZ = context.gameRenderer().getCamera().getCameraPos().z;
 
 
         for (BlockPos pos : MARKED_POSITIONS) {
@@ -57,15 +59,15 @@ public class TrajectoryRenderer {
 
             VertexConsumer vertexConsumer = Objects.requireNonNull(context.consumers()).getBuffer(RenderLayers.LINES);
 
-            VertexRendering.drawOutline(Objects.requireNonNull(context.matrixStack()), vertexConsumer,
-                    VoxelShapes.fullCube(), 0.0, 0.0, 0.0, 0xFFFF0000, 1f);
+            VertexRendering.drawOutline(Objects.requireNonNull(context.matrices()), vertexConsumer,
+                                        VoxelShapes.fullCube(), 0.0, 0.0, 0.0, 0xFFFF0000, 1f);
             matrices.pop();
         }
     }
 
     private static void renderTrajectory(@NotNull WorldRenderContext context) {
-        MatrixStack matrices = context.matrixStack();
-        Vec3d cameraPos = context.camera().getCameraPos();
+        MatrixStack matrices = context.matrices();
+        Vec3d cameraPos = context.gameRenderer().getCamera().getCameraPos();
         VertexConsumerProvider consumers = context.consumers();
 
         VertexConsumer lineBuffer = Objects.requireNonNull(consumers).getBuffer(RenderLayers.LINES);
@@ -78,11 +80,11 @@ public class TrajectoryRenderer {
 
             // 起点
             lineBuffer.vertex(matrix, (float) (start.x - cameraPos.x), (float) (start.y - cameraPos.y),
-                    (float) (start.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
+                              (float) (start.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
 
             // 终点
             lineBuffer.vertex(matrix, (float) (end.x - cameraPos.x), (float) (end.y - cameraPos.y),
-                    (float) (end.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
+                              (float) (end.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
         }
 
     }
