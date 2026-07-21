@@ -1,11 +1,9 @@
 package dev.rstminecraft.utils;
-
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexRendering;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -22,8 +20,8 @@ public class TrajectoryRenderer {
     public static List<Vec3d> path = new ArrayList<>();
 
     public static void init() {
-        WorldRenderEvents.BEFORE_DEBUG_RENDER.register(TrajectoryRenderer::renderTrajectory);
-        WorldRenderEvents.BEFORE_DEBUG_RENDER.register(TrajectoryRenderer::renderPos);
+        WorldRenderEvents.BEFORE_ENTITIES.register(TrajectoryRenderer::renderTrajectory);
+        WorldRenderEvents.BEFORE_ENTITIES.register(TrajectoryRenderer::renderPos);
     }
 
     public static void markPos(BlockPos pos) {
@@ -42,15 +40,14 @@ public class TrajectoryRenderer {
     }
 
     private static void renderPos(@NotNull WorldRenderContext context) {
-        if (MARKED_POSITIONS.isEmpty())
-            return;
+        if (MARKED_POSITIONS.isEmpty()) return;
 
         MatrixStack matrices = context.matrices();
 
         // 获取相机的偏移量，将坐标系对齐到世界坐标
-        double camX = context.gameRenderer().getCamera().getCameraPos().x;
-        double camY = context.gameRenderer().getCamera().getCameraPos().y;
-        double camZ = context.gameRenderer().getCamera().getCameraPos().z;
+        double camX = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().x;
+        double camY = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().y;
+        double camZ = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().z;
 
 
         for (BlockPos pos : MARKED_POSITIONS) {
@@ -60,17 +57,17 @@ public class TrajectoryRenderer {
             VertexConsumer vertexConsumer = Objects.requireNonNull(context.consumers()).getBuffer(RenderLayers.LINES);
 
             VertexRendering.drawOutline(Objects.requireNonNull(context.matrices()), vertexConsumer,
-                                        VoxelShapes.fullCube(), 0.0, 0.0, 0.0, 0xFFFF0000, 1f);
+                    VoxelShapes.fullCube(), 0.0, 0.0, 0.0, 0xFFFF0000, 1f);
             matrices.pop();
         }
     }
 
     private static void renderTrajectory(@NotNull WorldRenderContext context) {
         MatrixStack matrices = context.matrices();
-        Vec3d cameraPos = context.gameRenderer().getCamera().getCameraPos();
+        Vec3d cameraPos = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos();
         VertexConsumerProvider consumers = context.consumers();
 
-        VertexConsumer lineBuffer = Objects.requireNonNull(consumers).getBuffer(RenderLayers.LINES);
+        VertexConsumer lineBuffer = consumers.getBuffer(RenderLayers.LINES);
 
         Matrix4f matrix = Objects.requireNonNull(matrices).peek().getPositionMatrix();
 
@@ -80,11 +77,11 @@ public class TrajectoryRenderer {
 
             // 起点
             lineBuffer.vertex(matrix, (float) (start.x - cameraPos.x), (float) (start.y - cameraPos.y),
-                              (float) (start.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
+                    (float) (start.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
 
             // 终点
             lineBuffer.vertex(matrix, (float) (end.x - cameraPos.x), (float) (end.y - cameraPos.y),
-                              (float) (end.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
+                    (float) (end.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
         }
 
     }
