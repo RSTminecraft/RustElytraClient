@@ -1,7 +1,7 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.utils.MsgLevel;
+import dev.rstminecraft.RustClientTemplate.MsgLevel;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.ShulkerBoxBlock;
@@ -12,7 +12,6 @@ import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ContainerComponent;
-import net.minecraft.component.type.FireworksComponent;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantments;
@@ -43,16 +42,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-import static dev.rstminecraft.RSTFireballProtect.isHittingFireball;
+import static dev.rstminecraft.FireballProtect.isHittingFireball;
+import static dev.rstminecraft.RustClientTemplate.ModTaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
-import static dev.rstminecraft.TaskThread.RunAsMainThread;
-import static dev.rstminecraft.utils.RSTConfig.getBoolean;
-import static dev.rstminecraft.utils.RSTConfig.getInt;
-import dev.rstminecraft.TaskThread.TaskType;
+import static dev.rstminecraft.ModTask.*;
 
 
-
-public class RustSupplyTask {
+public class SupplyTask {
 
     private static Item Food = FoodList[0];
 
@@ -62,7 +58,7 @@ public class RustSupplyTask {
      * @param client 客户端对象
      */
     private static void WalkingToCenter(@NotNull MinecraftClient client) {
-        if (client.player == null) throw new TaskThread.TaskException("Player为null");
+        if (client.player == null) throw new TaskException("Player为null");
         while (true) {
             BlockPos footBlock = client.player.getBlockPos();
             Vec3d CenterPos = new Vec3d(footBlock.getX() + 0.5, client.player.getY(), footBlock.getZ() + 0.5);
@@ -71,7 +67,7 @@ public class RustSupplyTask {
             // 到达方块中心则停止
             if (Math.abs(delta.x) < 0.2 && Math.abs(delta.z) < 0.2) {
                 client.options.forwardKey.setPressed(false);
-                MsgSender.SendMsg(client.player, "行走完成", MsgLevel.tip);
+                msg.SendMsg(client.player, "行走完成", MsgLevel.tip);
                 return;
             }
             // 调整朝向
@@ -80,7 +76,7 @@ public class RustSupplyTask {
 
             // 模拟按下 W
             client.options.forwardKey.setPressed(true);
-            TaskThread.delay(1);
+            delay(1);
         }
     }
 
@@ -89,18 +85,15 @@ public class RustSupplyTask {
             return 0;
         }
 
-        if (stack.get(DataComponentTypes.FIREWORKS) instanceof FireworksComponent(int duration, var explosions)) {
-            return duration;
-        }
 
-        return 0;
+        return Objects.requireNonNull(stack.get(DataComponentTypes.FIREWORKS)).flightDuration();
     }
 
     public static void extinguishFire(@NotNull MinecraftClient client) {
         if (client.player == null || client.world == null || client.interactionManager == null)
-            throw new TaskThread.TaskException("重要变量为null");
+            throw new TaskException("重要变量为null");
         List<BlockPos> fire = new ArrayList<>();
-        RunAsMainThread(() -> {
+        runOnMainSync(() -> {
             int radius = 3;
             for (int i = -radius; i <= radius; i++) {
                 for (int j = -radius; j <= radius; j++) {
@@ -112,16 +105,16 @@ public class RustSupplyTask {
             }
         });
         for (BlockPos bp : fire) {
-            RunAsMainThread(() -> {
+            runOnMainSync(() -> {
                 lookAt(client.player, Vec3d.ofCenter(bp));
                 client.interactionManager.attackBlock(bp, Direction.UP);
             });
-            TaskThread.delay(1);
+            delay(1);
         }
     }
 
     private static void mergeItemInInv(@NotNull MinecraftClient client, stackChecker c, @NotNull ScreenHandler handler, int slotMin, int slotMax) {
-        if (client.player == null || client.interactionManager == null) throw new TaskThread.TaskException("null");
+        if (client.player == null || client.interactionManager == null) throw new TaskException("null");
         while (true) {
             List<Integer> l = new ArrayList<>();
             for (int i = slotMin; i < slotMax; i++) {
@@ -143,13 +136,13 @@ public class RustSupplyTask {
      * @param client 客户端对象
      */
     private static void SortAndCheckInv(@NotNull MinecraftClient client, boolean isXP) {
-        RunAsMainThread(() -> {
+        runOnMainSync(() -> {
             ClientPlayerEntity player = client.player;
-            if (player == null || client.interactionManager == null) throw new TaskThread.TaskException("Player为null");
+            if (player == null || client.interactionManager == null) throw new TaskException("Player为null");
 
             client.setScreen(new InventoryScreen(player));
             Screen screen2 = client.currentScreen;
-            if (!(screen2 instanceof HandledScreen<?> handled2)) throw new TaskThread.TaskException("窗口异常！");
+            if (!(screen2 instanceof HandledScreen<?> handled2)) throw new TaskException("窗口异常！");
 
             // 整理物品栏
             ScreenHandler handler2 = handled2.getScreenHandler();
@@ -255,16 +248,16 @@ public class RustSupplyTask {
                 goldenArmor++;
 
 
-            if (enderChestCount <= 2) throw new TaskThread.TaskException("物资不足：至少需要3个末影箱！");
+            if (enderChestCount <= 2) throw new TaskException("物资不足：至少需要3个末影箱！");
             if (!pickaxe)
-                throw new TaskThread.TaskException("物资不足：需要有一把 经验修补吧 耐久3 效率4或效率5 的钻石或合金镐！");
-            if (!sword) throw new TaskThread.TaskException("物资不足：需要有一把的钻石或合金剑（不要求附魔）！");
-            if (!elytra) throw new TaskThread.TaskException("物资不足：需要穿戴 耐久3 经验修补的鞘翅！");
+                throw new TaskException("物资不足：需要有一把 经验修补吧 耐久3 效率4或效率5 的钻石或合金镐！");
+            if (!sword) throw new TaskException("物资不足：需要有一把的钻石或合金剑（不要求附魔）！");
+            if (!elytra) throw new TaskException("物资不足：需要穿戴 耐久3 经验修补的鞘翅！");
             if (FoodCount <= 15)
-                throw new TaskThread.TaskException("物资不足：需要至少16个" + Food.getName().getString() + "!");
+                throw new TaskException("物资不足：需要至少16个" + Food.getName().getString() + "!");
 
-            if (getBoolean("inspectArmor", true) && (goldenArmor != 1 || diamondArmor != 2))
-                throw new TaskThread.TaskException("物资不足：需要穿戴有 保护4 推荐含有经验修补和耐久3 的一件金质盔甲和2件合金或钻石盔甲！");
+            if (config.getBoolean("inspectArmor", true) && (goldenArmor != 1 || diamondArmor != 2))
+                throw new TaskException("物资不足：需要穿戴有 保护4 推荐含有经验修补和耐久3 的一件金质盔甲和2件合金或钻石盔甲！");
 
             mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler2, 9, 36);
             mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, handler2, 9, 36);
@@ -357,30 +350,30 @@ public class RustSupplyTask {
      */
     private static void PlaceAndOpenContainer(@NotNull MinecraftClient client, @NotNull BlockPos targetPos, int HotBarSlot) {
         ClientPlayerEntity player = client.player;
-        if (player == null || client.getNetworkHandler() == null) throw new TaskThread.TaskException("null");
-        RunAsMainThread(() -> {
+        if (player == null || client.getNetworkHandler() == null) throw new TaskException("null");
+        runOnMainSync(() -> {
             // 切换槽位
             player.getInventory().setSelectedSlot(HotBarSlot);
             client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(HotBarSlot));
             // 看向目标
             lookAt(player, Vec3d.ofCenter(targetPos));
         });
-        TaskThread.delay(3);
+        delay(3);
         // 点击数据
         BlockPos support = targetPos.down();
         Vec3d hitPos = Vec3d.ofCenter(support).add(0, 0.5, 0);
         BlockHitResult hitResult = new BlockHitResult(hitPos, Direction.UP, support, false);
 
         // 尝试放置
-        ActionResult result = RunAsMainThread(() -> {
-            if (client.interactionManager == null) throw new TaskThread.TaskException("null");
+        ActionResult result = computeOnMain(() -> {
+            if (client.interactionManager == null) throw new TaskException("null");
             player.swingHand(Hand.MAIN_HAND);
             return client.interactionManager.interactBlock(player, Hand.MAIN_HAND, hitResult);
         });
         // 检查结果
-        if (!result.isAccepted()) throw new TaskThread.TaskException("放置失败");
+        if (!result.isAccepted()) throw new TaskException("放置失败");
 
-        TaskThread.delay(5);
+        delay(5);
         OpenContainer(client, targetPos);
     }
 
@@ -392,18 +385,18 @@ public class RustSupplyTask {
      */
     private static void OpenContainer(@NotNull MinecraftClient client, @NotNull BlockPos targetPos) {
         ClientPlayerEntity player = client.player;
-        if (player == null || client.getNetworkHandler() == null) throw new TaskThread.TaskException("null");
+        if (player == null || client.getNetworkHandler() == null) throw new TaskException("null");
         // 准备打开
-        MsgSender.SendMsg(client.player, "尝试放置末影箱成功，现在打开末影箱", MsgLevel.tip);
+        msg.SendMsg(client.player, "尝试放置末影箱成功，现在打开末影箱", MsgLevel.tip);
         BlockHitResult hitResult2 = new BlockHitResult(Vec3d.ofCenter(targetPos), Direction.UP, targetPos, false);
-        ActionResult result = RunAsMainThread(() -> {
-            if (client.interactionManager == null) throw new TaskThread.TaskException("null");
+        ActionResult result = computeOnMain(() -> {
+            if (client.interactionManager == null) throw new TaskException("null");
             client.player.swingHand(Hand.MAIN_HAND);
             return client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hitResult2);
         });
         player.swingHand(Hand.MAIN_HAND);
         // 检查结果
-        if (!result.isAccepted()) throw new TaskThread.TaskException("打开失败");
+        if (!result.isAccepted()) throw new TaskException("打开失败");
     }
 
     /**
@@ -453,7 +446,7 @@ public class RustSupplyTask {
      * @return 潜影盒拿取列表。
      */
     private static int[][] SupplyShulkerFinder(@NotNull MinecraftClient client, @NotNull HandledScreen<?> handled, boolean isXP) {
-        if (client.player == null) throw new TaskThread.TaskException("player为null");
+        if (client.player == null) throw new TaskException("player为null");
 
         StringBuilder sb = new StringBuilder();
         int totalSlots = handled.getScreenHandler().slots.size();
@@ -505,12 +498,12 @@ public class RustSupplyTask {
 
         // 没找到任何目标物品
         if (sb.isEmpty()) {
-            MsgSender.SendMsg(client.player, "没有目标物品。", MsgLevel.debug);
+            msg.SendMsg(client.player, "没有目标物品。", MsgLevel.debug);
         } else {
             String[] lines = sb.toString().split("\n");
             for (String line : lines) {
                 if (line == null || line.isEmpty()) continue;
-                MsgSender.SendMsg(client.player, line, MsgLevel.debug);
+                msg.SendMsg(client.player, line, MsgLevel.debug);
             }
         }
 
@@ -607,10 +600,10 @@ public class RustSupplyTask {
      * @param handler 潜影盒窗口handler
      */
     private static void PutOutSupply(@NotNull MinecraftClient client, @NotNull ScreenHandler handler, @NotNull List<Integer> replaceList, boolean isXP, int m, int n) {
-        RunAsMainThread(() -> {
+        runOnMainSync(() -> {
             if (client.player == null || client.interactionManager == null)
-                throw new TaskThread.TaskException("Player为null");
-            MsgSender.SendMsg(client.player, "本盒需要取出" + m + "组烟花," + n + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.debug);
+                throw new TaskException("Player为null");
+            msg.SendMsg(client.player, "本盒需要取出" + m + "组烟花," + n + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.debug);
 
 
             mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler, 0, 27);
@@ -622,7 +615,7 @@ public class RustSupplyTask {
             int a = 0, b = 0;
             for (int i = 0; i < 27; i++) {
                 ItemStack stack = handler.getSlot(i).getStack();
-                if (replaceList.isEmpty()) throw new TaskThread.TaskException("没多余槽位了");
+                if (replaceList.isEmpty()) throw new TaskException("没多余槽位了");
                 if (stack.getItem() == Food) {
                     for (int j = 0; j < 9; j++) {
                         ItemStack s = client.player.getInventory().getStack(j);
@@ -679,7 +672,7 @@ public class RustSupplyTask {
      * @param ShulkerPos 潜影盒位置
      */
     private static void mineSupplyShulker(@NotNull MinecraftClient client, BlockPos ShulkerPos) {
-        if (client.player == null) throw new TaskThread.TaskException("Player为null");
+        if (client.player == null) throw new TaskException("Player为null");
         int count = 0;
         PlayerInventory inventory = client.player.getInventory();
         for (int i = 0; i < inventory.getMainStacks().size(); i++) {
@@ -689,10 +682,10 @@ public class RustSupplyTask {
                 count += stack.getCount();
             }
         }
-        if (client.world == null) throw new TaskThread.TaskException("世界异常");
+        if (client.world == null) throw new TaskException("世界异常");
         // 调用BaritoneAPI挖掉用过的补给盒
         int targetCount = count + 1;
-        RunAsMainThread(() -> {
+        runOnMainSync(() -> {
             Block block = client.world.getBlockState(ShulkerPos).getBlock();
             BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(targetCount, block);
         });
@@ -701,10 +694,10 @@ public class RustSupplyTask {
             if (isHittingFireball()) i = 0;
             if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive()) break;
             if (i == 39) {
-                RunAsMainThread(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
-                throw new TaskThread.TaskException("挖掘异常？取消挖掘");
+                runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
+                throw new TaskException("挖掘异常？取消挖掘");
             }
-            TaskThread.delay(1);
+            delay(1);
         }
 
         // 等待捡起潜影盒
@@ -718,8 +711,8 @@ public class RustSupplyTask {
                 }
             }
             if (newCount >= targetCount) break;
-            if (j == 9) throw new TaskThread.TaskException("挖掘补给箱失败!");
-            TaskThread.delay(1);
+            if (j == 9) throw new TaskException("挖掘补给箱失败!");
+            delay(1);
         }
     }
 
@@ -730,26 +723,26 @@ public class RustSupplyTask {
      * @param EnderChestPos 末影箱位置
      */
     private static void mineEnderChest(@NotNull MinecraftClient client, BlockPos EnderChestPos) {
-        if (client.player == null || client.world == null) throw new TaskThread.TaskException("null");
+        if (client.player == null || client.world == null) throw new TaskException("null");
         int enderCount = countItemInInventory(client.player, Items.ENDER_CHEST);
         int obsidianCount = countItemInInventory(client.player, Items.OBSIDIAN);
-        RunAsMainThread(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1, client.world.getBlockState(EnderChestPos).getBlock()));
+        runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1, client.world.getBlockState(EnderChestPos).getBlock()));
 
         // 等待baritone挖掘
         for (int i = 0; i < 100; i++) {
             if (isHittingFireball()) i = 0;
             if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive() || countItemInInventory(client.player, Items.ENDER_CHEST) > enderCount) {
-                RunAsMainThread(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
+                runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
                 break;
             }
 
             if (i == 99 || !client.player.getBlockPos().isWithinDistance(EnderChestPos, 5)) {
-                RunAsMainThread(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
-                throw new TaskThread.TaskException("挖掘异常？取消挖掘!!");
+                runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
+                throw new TaskException("挖掘异常？取消挖掘!!");
             }
-            TaskThread.delay(1);
+            delay(1);
         }
-        MsgSender.SendMsg(client.player, "挖掘完毕", MsgLevel.tip);
+        msg.SendMsg(client.player, "挖掘完毕", MsgLevel.tip);
     }
 
     /**
@@ -769,15 +762,15 @@ public class RustSupplyTask {
                 handled = temp;
                 break;
             }
-            TaskThread.delay(1);
+            delay(1);
         }
-        if (handled == null) throw new TaskThread.TaskException(ScreenName + "疑似打开失败");
+        if (handled == null) throw new TaskException(ScreenName + "疑似打开失败");
         return handled;
     }
 
     private static int FireworkSupplyChecker(@NotNull MinecraftClient client) {
         int num = 0;
-        if (client.player == null) throw new TaskThread.TaskException("null");
+        if (client.player == null) throw new TaskException("null");
         for (int i = 9; i < 36; i++) {
             ItemStack s = client.player.getInventory().getStack(i);
             if (s.getItem() == Items.FIREWORK_ROCKET) num += s.getCount();
@@ -787,7 +780,7 @@ public class RustSupplyTask {
 
     private static int ElytraSupplyChecker(@NotNull MinecraftClient client, boolean isXP) {
         int num = 0;
-        if (client.player == null) throw new TaskThread.TaskException("null");
+        if (client.player == null) throw new TaskException("null");
         for (int i = 9; i < 36; i++) {
             ItemStack s = client.player.getInventory().getStack(i);
             if (isXP) {
@@ -864,23 +857,23 @@ public class RustSupplyTask {
      *
      * @param client 客户端对象
      * @param type   补给类型
-     * @throws TaskThread.TaskException 通过抛出异常中断
+     * @throws TaskException 通过抛出异常中断
      */
-    static void SupplyTask(@NotNull MinecraftClient client, TaskType type) throws TaskThread.TaskException, TaskThread.TaskCanceled {
-        if (client.player == null) throw new TaskThread.TaskException("Player为null");
+    static void SupplyTask(@NotNull MinecraftClient client, TaskType type) throws TaskException, TaskCanceled {
+        if (client.player == null) throw new TaskException("Player为null");
 
-        TaskThread.status = TaskThread.TaskStatus.SUPPLY;
-        Food = FoodList[getInt("FoodIndex", 0)];
+        status = TaskStatus.SUPPLY;
+        Food = FoodList[config.getInt("FoodIndex", 0)];
 
         timerMultiplier = 1;
         // 首先走到方块中央
         WalkingToCenter(client);
-        TaskThread.delay(2);
+        delay(2);
         // 整理物品栏
         ClientPlayerEntity player = client.player;
-        if (player == null || client.interactionManager == null) throw new TaskThread.TaskException("player为null");
+        if (player == null || client.interactionManager == null) throw new TaskException("player为null");
         SortAndCheckInv(client, type == TaskType.EXP_BOTTLE);
-        TaskThread.delay(2);
+        delay(2);
 
 
         int FireworkInNeed = 0;
@@ -902,23 +895,23 @@ public class RustSupplyTask {
 
         if (FireworkInNeed == 0 && ElytraInNeed == 0 && hasFood && hasTotem) return;
 
-        MsgSender.SendMsg(client.player, "所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + "组附魔之瓶/鞘翅", MsgLevel.info);
+        msg.SendMsg(client.player, "所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + "组附魔之瓶/鞘翅", MsgLevel.info);
 
         // 扑灭身边火焰
         extinguishFire(client);
 
         // 寻找末影箱
         int slot = findItemInHotBar(player, Items.ENDER_CHEST);
-        if (slot == -1) throw new TaskThread.TaskException("无末影箱");
+        if (slot == -1) throw new TaskException("无末影箱");
         String EnderChestName = player.getInventory().getStack(slot).getName().getString();
 
         // 寻找放置地点
         BlockPos EnderChestTargetPos = findPlaceTarget(player);
-        if (EnderChestTargetPos == null) throw new TaskThread.TaskException("附近没有合适的位置放置末影箱");
+        if (EnderChestTargetPos == null) throw new TaskException("附近没有合适的位置放置末影箱");
 
         // 放置并打开末影箱
         PlaceAndOpenContainer(client, EnderChestTargetPos, slot);
-        TaskThread.delay(1);
+        delay(1);
 
         // 等待末影箱界面
         HandledScreen<?> EnderChestHandled = WaitForScreen(client, EnderChestName);
@@ -926,9 +919,9 @@ public class RustSupplyTask {
         int[][] ShulkerData = SupplyShulkerFinder(client, EnderChestHandled, type == TaskType.EXP_BOTTLE);
 
         List<Integer> ShulkerList = ComputeShulker(FireworkInNeed, ElytraInNeed, ShulkerData);
-        if (ShulkerList.isEmpty()) throw new TaskThread.TaskException("末影箱中物资不足！");
-        else if (ShulkerList.size() > 4) throw new TaskThread.TaskException("末影箱中物品过于分散！");
-        else MsgSender.SendMsg(client.player, "所需的潜影盒槽位列表为：" + ShulkerList, MsgLevel.info);
+        if (ShulkerList.isEmpty()) throw new TaskException("末影箱中物资不足！");
+        else if (ShulkerList.size() > 4) throw new TaskException("末影箱中物品过于分散！");
+        else msg.SendMsg(client.player, "所需的潜影盒槽位列表为：" + ShulkerList, MsgLevel.info);
         List<Integer> replaceSlot = new ArrayList<>();
         int m = 0, n = 0;
         for (int i = 9; i < 36; i++) {
@@ -970,7 +963,7 @@ public class RustSupplyTask {
                 replaceSlot.add(i);
             } else replaceSlot.add(i);
         }
-        MsgSender.SendMsg(client.player, "可替换列表为" + replaceSlot, MsgLevel.debug);
+        msg.SendMsg(client.player, "可替换列表为" + replaceSlot, MsgLevel.debug);
         if (client.player.getInventory().getStack(findItemInHotBar(client.player, Food)).getCount() < 30) {
             int slot2 = -1, max = 0;
             for (int i = 0; i < 27; i++) {
@@ -980,7 +973,7 @@ public class RustSupplyTask {
                 }
             }
             if (slot2 == -1)
-                throw new TaskThread.TaskException("无可用" + Food.getName().getString() + "!");
+                throw new TaskException("无可用" + Food.getName().getString() + "!");
             else ShulkerList.add(slot2);
         }
         if (client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING) {
@@ -992,17 +985,17 @@ public class RustSupplyTask {
                 }
             }
             if (slot2 == -1 || max < 2)
-                throw new TaskThread.TaskException("无可用图腾!");
+                throw new TaskException("无可用图腾!");
             else ShulkerList.add(slot2);
         }
-        TaskThread.delay(1);
+        delay(1);
         for (int SupplySlot : ShulkerList) {
             // 等待末影箱窗口
             EnderChestHandled = WaitForScreen(client, EnderChestName);
 
 
-            if (SupplySlot > 26 || SupplySlot < 0) throw new TaskThread.TaskException("所需槽位异常");
-            else MsgSender.SendMsg(client.player, "准备拿出" + SupplySlot, MsgLevel.tip);
+            if (SupplySlot > 26 || SupplySlot < 0) throw new TaskException("所需槽位异常");
+            else msg.SendMsg(client.player, "准备拿出" + SupplySlot, MsgLevel.tip);
             // 找可以用来放潜影盒的槽位
             slot = -1;
             for (int j = 6; j < 9; j++) {
@@ -1012,21 +1005,20 @@ public class RustSupplyTask {
                     break;
                 }
             }
-            if (slot == -1) throw new TaskThread.TaskException("没有快捷栏位置可以用于取出潜影盒");
+            if (slot == -1) throw new TaskException("没有快捷栏位置可以用于取出潜影盒");
 
             // 取出潜影盒
             int ShulkerSlot = slot;
             HandledScreen<?> finalEnderChestHandled = EnderChestHandled;
-            RunAsMainThread(() -> {
+            runOnMainSync(() -> {
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
                 finalEnderChestHandled.close();
-                return null;
             });
-            MsgSender.SendMsg(client.player, "取出成功！", MsgLevel.tip);
+            msg.SendMsg(client.player, "取出成功！", MsgLevel.tip);
 
-            TaskThread.delay(5);
+            delay(5);
 
             // 找潜影盒名称
             ItemStack ShulkerStack = client.player.getInventory().getStack(ShulkerSlot);
@@ -1036,11 +1028,11 @@ public class RustSupplyTask {
 
             // 找空位放置潜影盒
             BlockPos ShulkerTargetPos = findPlaceTarget(player);
-            if (ShulkerTargetPos == null) throw new TaskThread.TaskException("附近没有合适的位置放置潜影盒");
+            if (ShulkerTargetPos == null) throw new TaskException("附近没有合适的位置放置潜影盒");
 
             // 放置并打开潜影盒
             PlaceAndOpenContainer(client, ShulkerTargetPos, ShulkerSlot);
-            TaskThread.delay(1);
+            delay(1);
 
             // 等待潜影盒窗口
             HandledScreen<?> ShulkerHandled = WaitForScreen(client, ShulkerName);
@@ -1052,16 +1044,16 @@ public class RustSupplyTask {
             int shouldPutOutFirework = Math.min(FireworkInNeed, ShulkerData[SupplySlot][0]);
             int shouldPutOutElytra = Math.min(ElytraInNeed, ShulkerData[SupplySlot][1]);
             PutOutSupply(client, ShulkerHandled.getScreenHandler(), replaceSlot, type == TaskType.EXP_BOTTLE, shouldPutOutFirework, shouldPutOutElytra);
-            MsgSender.SendMsg(client.player, "取出补给物品成功", MsgLevel.tip);
+            msg.SendMsg(client.player, "取出补给物品成功", MsgLevel.tip);
             FireworkInNeed -= shouldPutOutFirework;
             ElytraInNeed -= shouldPutOutElytra;
             // 取出成功，挖掉潜影盒
             mineSupplyShulker(client, ShulkerTargetPos);
 
-            MsgSender.SendMsg(client.player, "挖掘完毕，放回末影箱", MsgLevel.tip);
+            msg.SendMsg(client.player, "挖掘完毕，放回末影箱", MsgLevel.tip);
             // 重新打开末影箱
-            RunAsMainThread(() -> lookAt(client.player, Vec3d.ofCenter(EnderChestTargetPos)));
-            TaskThread.delay(2);
+            runOnMainSync(() -> lookAt(client.player, Vec3d.ofCenter(EnderChestTargetPos)));
+            delay(2);
             OpenContainer(client, EnderChestTargetPos);
 
             // 等待末影箱窗口
@@ -1069,19 +1061,19 @@ public class RustSupplyTask {
 
             // 放回潜影盒
             HandledScreen<?> finalEnderChestHandled1 = EnderChestHandled;
-            RunAsMainThread(() -> {
+            runOnMainSync(() -> {
 
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
             });
-            MsgSender.SendMsg(client.player, "放回完毕", MsgLevel.tip);
-            TaskThread.delay(1);
+            msg.SendMsg(client.player, "放回完毕", MsgLevel.tip);
+            delay(1);
         }
-        RunAsMainThread(() -> client.setScreen(null));
+        runOnMainSync(() -> client.setScreen(null));
         // 挖掘末影箱
         mineEnderChest(client, EnderChestTargetPos);
-        MsgSender.SendMsg(client.player, "补给任务圆满完成！", MsgLevel.tip);
+        msg.SendMsg(client.player, "补给任务圆满完成！", MsgLevel.tip);
     }
 
     private interface stackChecker {

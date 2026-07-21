@@ -22,3 +22,5 @@ gradleEnterprise {
 		}
 	}
 }
+
+includeBuild('../RustClientTemplate')

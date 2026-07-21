@@ -1,7 +1,8 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.utils.MsgLevel;
+import dev.rstminecraft.RustClientTemplate.ModTaskManager;
+import dev.rstminecraft.RustClientTemplate.MsgLevel;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -17,10 +18,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
-import static dev.rstminecraft.utils.RSTTask.scheduleTask;
-import static dev.rstminecraft.RustElytraClient.MsgSender;
+import static dev.rstminecraft.RustElytraClient.msg;
 
-class RSTFireballProtect {
+class FireballProtect {
     private static final HashSet<UUID> ignoreFireball = new HashSet<>();
     private static boolean flag = false;
 
@@ -45,19 +45,9 @@ class RSTFireballProtect {
         }
         Vec3d playerPos = client.player.getEntityPos();
         double Range = client.player.getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE) + 0.8;
-        Box detectionBox = new Box(
-                playerPos.x - Range,
-                playerPos.y - Range,
-                playerPos.z - Range,
-                playerPos.x + Range,
-                playerPos.y + Range,
-                playerPos.z + Range
-        );
-        return client.world.getEntitiesByType(
-                EntityType.FIREBALL,
-                detectionBox,
-                entity -> true
-        );
+        Box detectionBox = new Box(playerPos.x - Range, playerPos.y - Range, playerPos.z - Range, playerPos.x + Range,
+                                   playerPos.y + Range, playerPos.z + Range);
+        return client.world.getEntitiesByType(EntityType.FIREBALL, detectionBox, entity -> true);
     }
 
     /**
@@ -77,7 +67,8 @@ class RSTFireballProtect {
             return true;
         }
         if (client.player != null && client.interactionManager != null && client.getNetworkHandler() != null) {
-            if (l.size() > 1) return false;
+            if (l.size() > 1)
+                return false;
             FireballEntity fireball = l.getFirst();
             if (ignoreFireball.contains(fireball.getUuid()))
                 return true;
@@ -94,13 +85,17 @@ class RSTFireballProtect {
             float pitch = (float) (-Math.atan2(dy, horizontalDistance) * 180 / Math.PI);
             client.player.setYaw(yaw);
             client.player.setPitch(pitch);
-            MsgSender.SendMsg(client.player, "准备拦截火球！", MsgLevel.warning);
-            scheduleTask((s, a) -> {
-                client.interactionManager.attackEntity(client.player, fireball);
-                PlayerInteractEntityC2SPacket attackPacket = PlayerInteractEntityC2SPacket.attack(fireball, client.player.isSneaking());
-                client.getNetworkHandler().sendPacket(attackPacket);
-                client.player.swingHand(Hand.MAIN_HAND);
-            }, 1, 0, 1, 1000000000);
+            msg.SendMsg(client.player, "准备拦截火球！", MsgLevel.warning);
+            ModTaskManager.startThread(() -> {
+                ModTaskManager.delay(1);
+                ModTaskManager.runOnMainSync(() -> {
+                    client.interactionManager.attackEntity(client.player, fireball);
+                    PlayerInteractEntityC2SPacket attackPacket = PlayerInteractEntityC2SPacket.attack(fireball,
+                                                                                                      client.player.isSneaking());
+                    client.getNetworkHandler().sendPacket(attackPacket);
+                    client.player.swingHand(Hand.MAIN_HAND);
+                });
+            });
             return true;
         }
         return false;

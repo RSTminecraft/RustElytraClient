@@ -6,9 +6,11 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组主文件。
 
+import dev.rstminecraft.RustClientTemplate.Messenger;
+import dev.rstminecraft.RustClientTemplate.ModConfig;
+import dev.rstminecraft.RustClientTemplate.ModTaskManager;
+import dev.rstminecraft.RustClientTemplate.MsgLevel;
 import dev.rstminecraft.utils.BaritoneControlChecker;
-import dev.rstminecraft.utils.MsgLevel;
-import dev.rstminecraft.utils.RSTMsgSender;
 import dev.rstminecraft.utils.TrajectoryRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -19,9 +21,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
@@ -32,155 +32,127 @@ import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
-
-import static dev.rstminecraft.utils.RSTConfig.*;
-import static dev.rstminecraft.utils.RSTTask.scheduleTask;
-import static dev.rstminecraft.utils.RSTTask.tick;
+import java.util.Map;
+import java.util.Objects;
 
 public class RustElytraClient implements ClientModInitializer {
     public static final Logger MODLOGGER = LoggerFactory.getLogger("rust-elytra-client");
-    public static final AtomicReference<TaskHolder<?>> currentTask = new AtomicReference<>();
     public static final Item[] FoodList = {Items.GOLDEN_CARROT, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE,
             Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_CHICKEN};
-    static final Object ThreadLock = new Object();
     public static int currentTick = 0;
     public static boolean autoLogEnabled = false;
+
+    // region 飞行mixin控制变量
     public static boolean fixEyeHeight = false;
-    // mixin相关变量
     public static boolean cameraMixinSwitch = false;
     public static float fixedYaw = 0f, fixedPitch = 0f;
+    public static float timerMultiplier = 1f;
+    // endregion
+
+    // region 其他mixin信息
     public static boolean isLookMixinSuccess = false;
     public static boolean isPausedMixinSuccess = false;
     public static boolean[] paused;
+    // endregion
 
-    // timer mixin相关
-    public static float timerMultiplier = 1f;
-
-    // HUD显示坐标
+    // region HUD显示控制
     public static int HudX;
     public static int HudY;
     public static boolean enableHud;
+    // endregion
 
-    public static RSTMsgSender MsgSender;
+    public static Messenger msg;
     public static KeyBinding openCustomScreenKey;
     public static KeyBinding elytraDebugKey;
-    static int flag = 0;
+    public static ModConfig config;
     static @NotNull ModStatuses ModStatus = ModStatuses.idle;
     FabricLoader loader = FabricLoader.getInstance();
 
     @Override
     public void onInitializeClient() {
+        // 初始化任务管理器
+        ModTaskManager.init();
+
         boolean hasBaritone = loader.isModLoaded("baritone") || loader.isModLoaded("baritone-meteor");
         if (!hasBaritone) {
-            MODLOGGER.error(" [MyMod] 需要安装 Baritone（baritone / baritone-meteor 任选其一");
+            MODLOGGER.error(" [Rust Elytra] 需要安装 Baritone（baritone / baritone-meteor 任选其一");
         }
-        loadConfig(FabricLoader.getInstance().getConfigDir().resolve("RSTConfig.json"));
-        MsgSender = new RSTMsgSender(getBoolean("DisplayDebug", false) ? MsgLevel.debug : MsgLevel.info);
-        autoLogEnabled = getBoolean("autoLogEnabled", false);
-        HudX = getInt("HudX", 0);
-        HudY = getInt("HudY", 0);
-        enableHud = getBoolean("enableHud", true);
+        Map<String, Object> defaultsConfig = Map.ofEntries(Map.entry("FirstUse", true), Map.entry("isAutoLog", true),
+                                                           Map.entry("isAutoLogOnSeg1", false),
+                                                           Map.entry("DisplayDebug", false),
+                                                           Map.entry("inspectArmor", true),
+                                                           Map.entry("verboseDisplayDebug", false),
+                                                           Map.entry("FoodIndex", 0),
+                                                           Map.entry("autoLogEnabled", false), Map.entry("HudX", 0),
+                                                           Map.entry("HudY", 0), Map.entry("enableHud", true));
+
+        config = new ModConfig(FabricLoader.getInstance().getConfigDir().resolve("RSTConfig.json"), defaultsConfig);
+        msg = new Messenger("Rust Elytra", config.getBoolean("DisplayDebug", false) ? MsgLevel.debug : MsgLevel.info,
+                            MODLOGGER);
+        autoLogEnabled = config.getBoolean("autoLogEnabled", false);
+        HudX = config.getInt("HudX", 0);
+        HudY = config.getInt("HudY", 0);
+        enableHud = config.getBoolean("enableHud", true);
         // GUI按键注册
         KeyBinding.Category RST_CATEGORY = KeyBinding.Category.create(Identifier.of("rst_auto_elytra", "general"));
-        openCustomScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("RST Auto Elytra Mod主界面",
-                InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, RST_CATEGORY));
-        elytraDebugKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("RST Auto Elytra Mod无尽鞘翅调试按钮",
-                InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), RST_CATEGORY));
+        openCustomScreenKey = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding("RST Auto Elytra Mod主界面", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, RST_CATEGORY));
+        elytraDebugKey = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding("RST Auto Elytra Mod无尽鞘翅调试按钮", InputUtil.Type.KEYSYM,
+                               InputUtil.UNKNOWN_KEY.getCode(), RST_CATEGORY));
         TrajectoryRenderer.init();
 
-        HudRenderCallback.EVENT.register((DrawContext context, RenderTickCounter tickCounter) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (!enableHud || TaskThread.getModThread() == null || client.player == null)
-                return;
-            StringBuilder sb = new StringBuilder();
-            sb.append("当前状态:");
-            switch (TaskThread.getModThread().type) {
-                case ELYTRA -> sb.append("鞘翅模式");
-                case EXP_BOTTLE -> sb.append("经验模式");
-                case INFINITY_ELYTRA -> sb.append("无尽鞘翅模式");
-            }
-            sb.append(",");
-            switch (TaskThread.getTaskStatus()) {
-                case START -> sb.append("任务正在启动");
-                case SUPPLY -> sb.append("正在获取补给");
-                case FLYING -> sb.append("正在飞行");
-                case REPAIR_ELYTRA -> sb.append("正在修补鞘翅");
-                case LANDING -> sb.append("正在降落");
-            }
-            sb.append('\n');
-            sb.append("已飞行距离:").append(String.format("%.2f", TaskThread.TaskFlyDistance(client.player))).append('\n');
-            sb.append("剩余飞行距离:").append(String.format("%.2f", TaskThread.TaskRemainDistance(client.player))).append('\n');
-            sb.append("平均飞行速度:").append(String.format("%.2f", TaskThread.TaskAverageSpeed(client.player))).append(" " + "m/s\n");
-            int second = (int) TaskThread.TaskRemainSecond(client.player); //这是随便输入的秒值
-            int hour = second / 3600; // 得到分钟数
-            second = second % 3600;//剩余的秒数
-            int minute = second / 60;//得到分
-            second = second % 60;//剩余的秒
-            sb.append(String.format("预计剩余时间:%02d:%02d:%02d", hour, minute, second));
-            String[] strs = sb.toString().split("\n");
-            for (int i = 0; i < strs.length; i++) {
-                context.drawText(MinecraftClient.getInstance().textRenderer, strs[i], HudX, HudY + 10 * i, 0xFFFFFFFF
-                        , false);
-            }
-        });
+        HudRenderCallback.EVENT.register((context, tickCounter) -> ModHud.DrawHud(context));
 
         // tick末事件注册
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             currentTick++;
-            if (TaskThread.isThreadRunning()) {
-                synchronized (ThreadLock) {
-                    ThreadLock.notify();
-                }
-                try {
-                    while (TaskThread.getModThread() != null && !(TaskThread.getModThread().getState() == Thread.State.TERMINATED || TaskThread.getModThread().getState() == Thread.State.TIMED_WAITING)) {
-                        TaskHolder<?> task = currentTask.get();
-                        if (task != null) {
-                            task.execute();
-                            currentTask.set(null);
-                        }
-                    }
-                } catch (NullPointerException e) {
-                    if (!e.getMessage().contains("TaskThread.getState"))
-                        throw e;
-                }
-            }
-            tick();
             if (client.player != null && (openCustomScreenKey.isPressed()))
-                client.setScreen(new RSTScr(MinecraftClient.getInstance().currentScreen, getBoolean("FirstUse", true)));
+                client.setScreen(new RSTScr(client.currentScreen));
 
             // 自动重装鞘翅，避免鞘翅耐久损耗（无尽鞘翅模式）
-            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.player.isGliding() && client.interactionManager != null && client.getNetworkHandler() != null && (TaskThread.getTaskStatus() == TaskThread.TaskStatus.LANDING || TaskThread.getTaskStatus() == TaskThread.TaskStatus.FLYING)))) {
+            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() ||
+                                                                   (ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
+                                                                    client.player.isGliding() &&
+                                                                    client.interactionManager != null &&
+                                                                    client.getNetworkHandler() != null &&
+                                                                    (ModTask.status == ModTask.TaskStatus.LANDING ||
+                                                                     ModTask.status == ModTask.TaskStatus.FLYING)))) {
                 fixEyeHeight = true;
-                scheduleTask((s, a) -> fixEyeHeight = false, 0, 0, 3, 100000);
+                ModTaskManager.startThread(() -> {
+                    ModTaskManager.delay(3);
+                    fixEyeHeight = false;
+                });
                 client.player.stopGliding();
-                client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player,
-                        ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                Objects.requireNonNull(client.getNetworkHandler()).sendPacket(
+                        new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
             BaritoneControlChecker.lookFlag = false;
         });
 
         // 自动开始飞行
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
-            if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || (TaskThread.getModThread() != null && TaskThread.getModThread().type == TaskThread.TaskType.INFINITY_ELYTRA && client.interactionManager != null && client.getNetworkHandler() != null && (TaskThread.getTaskStatus() == TaskThread.TaskStatus.LANDING || TaskThread.getTaskStatus() == TaskThread.TaskStatus.FLYING)))) {
+            if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() ||
+                                                                   (ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
+                                                                    client.interactionManager != null &&
+                                                                    client.getNetworkHandler() != null &&
+                                                                    (ModTask.status == ModTask.TaskStatus.LANDING ||
+                                                                     ModTask.status == ModTask.TaskStatus.FLYING)))) {
                 client.player.startGliding();
-                client.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(client.player,
-                        ClientCommandC2SPacket.Mode.START_FALL_FLYING));
+                Objects.requireNonNull(client.getNetworkHandler()).sendPacket(
+                        new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
         });
         // 本命令用于进入主菜单GUI(也可以通过上方按键进入)
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(ClientCommandManager.literal("RSTAutoElytraMenu").executes(context -> {
-            scheduleTask((s, a) -> MinecraftClient.getInstance().setScreen(new RSTScr(MinecraftClient.getInstance().currentScreen, getBoolean("FirstUse", true))), 1, 0, 2, 100000);
-            return 1;
-        })));
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(ClientCommandManager.literal("RSTDebug-IDLE").executes(context -> {
-            ModStatus = ModStatuses.idle;
-            TrajectoryRenderer.path.clear();
-            return 1;
-        })));
-
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+                ClientCommandManager.literal("RustElytraMenu").executes(context -> {
+                    ModTaskManager.startThread(() -> {
+                        ModTaskManager.delay(1);
+                        ModTaskManager.runOnMainSync(() -> MinecraftClient.getInstance().setScreen(
+                                new RSTScr(MinecraftClient.getInstance().currentScreen)));
+                    });
+                    return 1;
+                })));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             // 确保 client.world 为 null 时不崩溃
             if (ModStatus != ModStatuses.idle) {
@@ -193,31 +165,4 @@ public class RustElytraClient implements ClientModInitializer {
         idle, running, canceled
     }
 
-    public static class TaskHolder<T> {
-        private final Supplier<T> lambda;
-        private final CountDownLatch latch;
-        private T result;
-        private Throwable error;
-
-        TaskHolder(Supplier<T> lambda, CountDownLatch latch) {
-            this.lambda = lambda;
-            this.latch = latch;
-        }
-
-        void execute() {
-            try {
-                this.result = lambda.get();
-            } catch (Throwable t) {
-                this.error = t;
-            } finally {
-                latch.countDown();
-            }
-        }
-
-        T getResult() {
-            if (error != null)
-                throw new TaskThread.TaskException(error.getMessage());
-            return result;
-        }
-    }
 }
