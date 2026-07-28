@@ -27,9 +27,10 @@ public class ModHud {
         }
         sb.append('\n');
         sb.append("已飞行距离:").append(String.format("%.2f", ModTask.TaskFlyDistance(client.player))).append('\n');
-        sb.append("剩余飞行距离:").append(String.format("%.2f", ModTask.TaskRemainDistance(client.player))).append('\n');
-        sb.append("平均飞行速度:").append(String.format("%.2f", ModTask.TaskAverageSpeed(client.player))).append(" " +
-                "m/s\n");
+        sb.append("剩余飞行距离:").append(String.format("%.2f", ModTask.TaskRemainDistance(client.player))).append(
+                '\n');
+        sb.append("平均飞行速度:").append(String.format("%.2f", ModTask.TaskAverageSpeed(client.player))).append(
+                " " + "m/s\n");
         int second = (int) ModTask.TaskRemainSecond(client.player); //这是随便输入的秒值
         int hour = second / 3600; // 得到分钟数
         second = second % 3600;//剩余的秒数
@@ -39,7 +40,7 @@ public class ModHud {
         String[] strings = sb.toString().split("\n");
         for (int i = 0; i < strings.length; i++) {
             context.drawText(MinecraftClient.getInstance().textRenderer, strings[i], HudX, HudY + 10 * i, 0xFFFFFFFF,
-                    false);
+                             false);
         }
     }
 

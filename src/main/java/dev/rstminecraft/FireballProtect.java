@@ -1,8 +1,8 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.RustClientTemplate.ModTaskManager;
-import dev.rstminecraft.RustClientTemplate.MsgLevel;
+import dev.rstminecraft.RustClientCore.TaskManager;
+import dev.rstminecraft.RustClientCore.MsgLevel;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -86,9 +86,9 @@ class FireballProtect {
             client.player.setYaw(yaw);
             client.player.setPitch(pitch);
             msg.SendMsg(client.player, "准备拦截火球！", MsgLevel.warning);
-            ModTaskManager.startThread(() -> {
-                ModTaskManager.delay(1);
-                ModTaskManager.runOnMainSync(() -> {
+            TaskManager.runTask(() -> {
+                TaskManager.delay(1);
+                TaskManager.runOnMain(() -> {
                     client.interactionManager.attackEntity(client.player, fireball);
                     PlayerInteractEntityC2SPacket attackPacket = PlayerInteractEntityC2SPacket.attack(fireball,
                                                                                                       client.player.isSneaking());

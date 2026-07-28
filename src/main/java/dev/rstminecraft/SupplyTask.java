@@ -1,7 +1,7 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.RustClientTemplate.MsgLevel;
+import dev.rstminecraft.RustClientCore.MsgLevel;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.ShulkerBoxBlock;
@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static dev.rstminecraft.FireballProtect.isHittingFireball;
-import static dev.rstminecraft.RustClientTemplate.ModTaskManager.*;
+import static dev.rstminecraft.RustClientCore.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
 import static dev.rstminecraft.ModTask.*;
 
@@ -93,7 +93,7 @@ public class SupplyTask {
         if (client.player == null || client.world == null || client.interactionManager == null)
             throw new TaskException("重要变量为null");
         List<BlockPos> fire = new ArrayList<>();
-        runOnMainSync(() -> {
+        runOnMain(() -> {
             int radius = 3;
             for (int i = -radius; i <= radius; i++) {
                 for (int j = -radius; j <= radius; j++) {
@@ -105,7 +105,7 @@ public class SupplyTask {
             }
         });
         for (BlockPos bp : fire) {
-            runOnMainSync(() -> {
+            runOnMain(() -> {
                 lookAt(client.player, Vec3d.ofCenter(bp));
                 client.interactionManager.attackBlock(bp, Direction.UP);
             });
@@ -136,7 +136,7 @@ public class SupplyTask {
      * @param client 客户端对象
      */
     private static void SortAndCheckInv(@NotNull MinecraftClient client, boolean isXP) {
-        runOnMainSync(() -> {
+        runOnMain(() -> {
             ClientPlayerEntity player = client.player;
             if (player == null || client.interactionManager == null) throw new TaskException("Player为null");
 
@@ -351,7 +351,7 @@ public class SupplyTask {
     private static void PlaceAndOpenContainer(@NotNull MinecraftClient client, @NotNull BlockPos targetPos, int HotBarSlot) {
         ClientPlayerEntity player = client.player;
         if (player == null || client.getNetworkHandler() == null) throw new TaskException("null");
-        runOnMainSync(() -> {
+        runOnMain(() -> {
             // 切换槽位
             player.getInventory().setSelectedSlot(HotBarSlot);
             client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(HotBarSlot));
@@ -600,7 +600,7 @@ public class SupplyTask {
      * @param handler 潜影盒窗口handler
      */
     private static void PutOutSupply(@NotNull MinecraftClient client, @NotNull ScreenHandler handler, @NotNull List<Integer> replaceList, boolean isXP, int m, int n) {
-        runOnMainSync(() -> {
+        runOnMain(() -> {
             if (client.player == null || client.interactionManager == null)
                 throw new TaskException("Player为null");
             msg.SendMsg(client.player, "本盒需要取出" + m + "组烟花," + n + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.debug);
@@ -685,7 +685,7 @@ public class SupplyTask {
         if (client.world == null) throw new TaskException("世界异常");
         // 调用BaritoneAPI挖掉用过的补给盒
         int targetCount = count + 1;
-        runOnMainSync(() -> {
+        runOnMain(() -> {
             Block block = client.world.getBlockState(ShulkerPos).getBlock();
             BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(targetCount, block);
         });
@@ -694,7 +694,7 @@ public class SupplyTask {
             if (isHittingFireball()) i = 0;
             if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive()) break;
             if (i == 39) {
-                runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
+                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
                 throw new TaskException("挖掘异常？取消挖掘");
             }
             delay(1);
@@ -726,18 +726,18 @@ public class SupplyTask {
         if (client.player == null || client.world == null) throw new TaskException("null");
         int enderCount = countItemInInventory(client.player, Items.ENDER_CHEST);
         int obsidianCount = countItemInInventory(client.player, Items.OBSIDIAN);
-        runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1, client.world.getBlockState(EnderChestPos).getBlock()));
+        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1, client.world.getBlockState(EnderChestPos).getBlock()));
 
         // 等待baritone挖掘
         for (int i = 0; i < 100; i++) {
             if (isHittingFireball()) i = 0;
             if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive() || countItemInInventory(client.player, Items.ENDER_CHEST) > enderCount) {
-                runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
+                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
                 break;
             }
 
             if (i == 99 || !client.player.getBlockPos().isWithinDistance(EnderChestPos, 5)) {
-                runOnMainSync(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().cancel());
+                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
                 throw new TaskException("挖掘异常？取消挖掘!!");
             }
             delay(1);
@@ -1010,7 +1010,7 @@ public class SupplyTask {
             // 取出潜影盒
             int ShulkerSlot = slot;
             HandledScreen<?> finalEnderChestHandled = EnderChestHandled;
-            runOnMainSync(() -> {
+            runOnMain(() -> {
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
@@ -1052,7 +1052,7 @@ public class SupplyTask {
 
             msg.SendMsg(client.player, "挖掘完毕，放回末影箱", MsgLevel.tip);
             // 重新打开末影箱
-            runOnMainSync(() -> lookAt(client.player, Vec3d.ofCenter(EnderChestTargetPos)));
+            runOnMain(() -> lookAt(client.player, Vec3d.ofCenter(EnderChestTargetPos)));
             delay(2);
             OpenContainer(client, EnderChestTargetPos);
 
@@ -1061,7 +1061,7 @@ public class SupplyTask {
 
             // 放回潜影盒
             HandledScreen<?> finalEnderChestHandled1 = EnderChestHandled;
-            runOnMainSync(() -> {
+            runOnMain(() -> {
 
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
@@ -1070,7 +1070,7 @@ public class SupplyTask {
             msg.SendMsg(client.player, "放回完毕", MsgLevel.tip);
             delay(1);
         }
-        runOnMainSync(() -> client.setScreen(null));
+        runOnMain(() -> client.setScreen(null));
         // 挖掘末影箱
         mineEnderChest(client, EnderChestTargetPos);
         msg.SendMsg(client.player, "补给任务圆满完成！", MsgLevel.tip);

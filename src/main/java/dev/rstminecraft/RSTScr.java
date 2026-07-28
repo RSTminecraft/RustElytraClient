@@ -2,17 +2,17 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组GUI实现。
 
-import dev.rstminecraft.RustClientTemplate.Messenger;
-import dev.rstminecraft.RustClientTemplate.ModAbstractScr;
-import dev.rstminecraft.RustClientTemplate.ModSimpleScr;
-import dev.rstminecraft.RustClientTemplate.MsgLevel;
+import dev.rstminecraft.RustClientCore.Messenger;
+import dev.rstminecraft.RustClientCore.AbstractScr;
+import dev.rstminecraft.RustClientCore.SimpleScr;
+import dev.rstminecraft.RustClientCore.MsgLevel;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
 
 import static dev.rstminecraft.RustElytraClient.*;
 
-public class RSTScr extends ModSimpleScr {
+public class RSTScr extends SimpleScr {
     // 主菜单相关信息
     // 3行1列
     private static final int MainButtonsRow = 3;
@@ -83,7 +83,7 @@ public class RSTScr extends ModSimpleScr {
     }
 
     // 开始飞行菜单
-    private static class ciScr extends ModSimpleScr {
+    private static class ciScr extends SimpleScr {
         // 3行一列
         private static final int ciButtonsRow = 5;
         private static final int ciButtonsCol = 1;
@@ -193,7 +193,7 @@ public class RSTScr extends ModSimpleScr {
     }
 
     // 设置屏幕
-    private static class SettingsScr extends ModSimpleScr {
+    private static class SettingsScr extends SimpleScr {
         // 5行一列
         private static final int SettingsButtonsRow = 5;
         private static final int SettingsButtonsCol = 1;
@@ -227,7 +227,7 @@ public class RSTScr extends ModSimpleScr {
     }
 
     // 高级设置屏幕
-    private static class AdvancedSettingsScr extends ModAbstractScr {
+    private static class AdvancedSettingsScr extends AbstractScr {
         // 5行一列
         private static final int SettingsButtonsRow = 3;
         private static final int SettingsButtonsCol = 1;
@@ -277,7 +277,7 @@ public class RSTScr extends ModSimpleScr {
     }
 
     // 高级设置的警告
-    private static class AdvancedSettingsWarningScr extends ModSimpleScr {
+    private static class AdvancedSettingsWarningScr extends SimpleScr {
         // 5行一列
         private static final int SettingsButtonsRow = 1;
         private static final int SettingsButtonsCol = 2;
@@ -301,7 +301,7 @@ public class RSTScr extends ModSimpleScr {
     }
 
     // HUD 设置
-    private static class HudSettingsScr extends ModSimpleScr {
+    private static class HudSettingsScr extends SimpleScr {
         private static final int HudSettingsRow = 4;
         private static final int HudSettingsCol = 1;
         private int x = 0;

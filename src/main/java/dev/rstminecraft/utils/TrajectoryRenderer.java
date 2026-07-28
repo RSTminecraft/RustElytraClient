@@ -77,11 +77,11 @@ public class TrajectoryRenderer {
 
             // 起点
             lineBuffer.vertex(matrix, (float) (start.x - cameraPos.x), (float) (start.y - cameraPos.y),
-                    (float) (start.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
+                    (float) (start.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f).lineWidth(1);
 
             // 终点
             lineBuffer.vertex(matrix, (float) (end.x - cameraPos.x), (float) (end.y - cameraPos.y),
-                    (float) (end.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f);
+                    (float) (end.z - cameraPos.z)).color(0f, 1f, 1f, 1f).normal(1f, 1f, 1f).lineWidth(1);
         }
 
     }

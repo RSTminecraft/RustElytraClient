@@ -1,15 +1,13 @@
 package dev.rstminecraft;
 
 //提示：本代码完全由RSTminecraft 编写，部分内容可能不符合编程规范，有意愿者请修改。
-//关于有人质疑后门的事，请自行阅读代码，你要是能找出后门，我把电脑吃了。
-//本模组永不收费，永远开源，许可证相关事项正在考虑。
 
 //文件解释：本文件为模组主文件。
 
-import dev.rstminecraft.RustClientTemplate.Messenger;
-import dev.rstminecraft.RustClientTemplate.ModConfig;
-import dev.rstminecraft.RustClientTemplate.ModTaskManager;
-import dev.rstminecraft.RustClientTemplate.MsgLevel;
+import dev.rstminecraft.RustClientCore.Messenger;
+import dev.rstminecraft.RustClientCore.ModConfig;
+import dev.rstminecraft.RustClientCore.TaskManager;
+import dev.rstminecraft.RustClientCore.MsgLevel;
 import dev.rstminecraft.utils.BaritoneControlChecker;
 import dev.rstminecraft.utils.TrajectoryRenderer;
 import net.fabricmc.api.ClientModInitializer;
@@ -68,13 +66,11 @@ public class RustElytraClient implements ClientModInitializer {
     public static KeyBinding openCustomScreenKey;
     public static KeyBinding elytraDebugKey;
     public static ModConfig config;
-    static @NotNull ModStatuses ModStatus = ModStatuses.idle;
+    static @NotNull volatile ModStatuses ModStatus = ModStatuses.idle;
     FabricLoader loader = FabricLoader.getInstance();
 
     @Override
     public void onInitializeClient() {
-        // 初始化任务管理器
-        ModTaskManager.init();
 
         boolean hasBaritone = loader.isModLoaded("baritone") || loader.isModLoaded("baritone-meteor");
         if (!hasBaritone) {
@@ -125,19 +121,21 @@ public class RustElytraClient implements ClientModInitializer {
                                                                     (ModTask.status == ModTask.TaskStatus.LANDING ||
                                                                      ModTask.status == ModTask.TaskStatus.FLYING)))) {
                 fixEyeHeight = true;
-                ModTaskManager.startThread(() -> {
-                    ModTaskManager.delay(3);
+                TaskManager.runTask(() -> {
+                    TaskManager.delay(3);
                     fixEyeHeight = false;
                 });
                 client.player.stopGliding();
                 Objects.requireNonNull(client.getNetworkHandler()).sendPacket(
                         new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
-            BaritoneControlChecker.lookFlag = false;
+
         });
+
 
         // 自动开始飞行
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            BaritoneControlChecker.lookFlag = false;
             if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() ||
                                                                    (ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
                                                                     client.interactionManager != null &&
@@ -152,9 +150,9 @@ public class RustElytraClient implements ClientModInitializer {
         // 本命令用于进入主菜单GUI(也可以通过上方按键进入)
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
                 ClientCommandManager.literal("RustElytraMenu").executes(context -> {
-                    ModTaskManager.startThread(() -> {
-                        ModTaskManager.delay(1);
-                        ModTaskManager.runOnMainSync(() -> MinecraftClient.getInstance().setScreen(
+                    TaskManager.runTask(() -> {
+                        TaskManager.delay(1);
+                        TaskManager.runOnMain(() -> MinecraftClient.getInstance().setScreen(
                                 new RSTScr(MinecraftClient.getInstance().currentScreen)));
                     });
                     return 1;

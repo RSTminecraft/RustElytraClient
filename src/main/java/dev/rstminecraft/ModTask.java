@@ -1,8 +1,8 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.RustClientTemplate.ModTaskManager;
-import dev.rstminecraft.RustClientTemplate.MsgLevel;
+import dev.rstminecraft.RustClientCore.TaskManager;
+import dev.rstminecraft.RustClientCore.MsgLevel;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
@@ -19,7 +19,7 @@ import static dev.rstminecraft.SupplyTask.supplyTask;
 
 public class ModTask {
     public static TaskType type;
-    public static TaskStatus status = TaskStatus.NO_TASK;
+    public static volatile TaskStatus status = TaskStatus.NO_TASK;
     private static int TargetX, TargetZ;
     private static boolean isAutoLog, isAutoLogOnSeg1;
     private static BlockPos StartPos;
@@ -95,7 +95,7 @@ public class ModTask {
             if (client.isOnThread())
                 BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
             else
-                ModTaskManager.runOnMainSync(
+                TaskManager.runOnMain(
                         () -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
         }
     }
@@ -129,7 +129,7 @@ public class ModTask {
 
         resetMixin();
         resetClient(client);
-        ModTaskManager.startThread(() -> runTask(client)).setUncaughtExceptionHandler((thread, exception) -> {
+        TaskManager.runTask(() -> runTask(client)).setUncaughtExceptionHandler((thread, exception) -> {
             resetMixin();
             resetClient(client);
             status = TaskStatus.NO_TASK;
@@ -149,14 +149,14 @@ public class ModTask {
             msg.SendMsg(client.player, "第" + nowSeg + "段补给任务开始！", MsgLevel.info);
 
             // 开启补给保护任务
-            Thread protectThread = ModTaskManager.startThread(() -> SupplyTaskProtector(client, finalNowSeg));
+            Thread protectThread = TaskManager.runTask(() -> SupplyTaskProtector(client, finalNowSeg));
 
             // 开启补给任务
             try {
                 supplyTask(client, type);
                 // 关闭保护任务
                 protectThread.interrupt();
-                ModTaskManager.delay(1);
+                TaskManager.delay(1);
             } catch (TaskException e) {
                 // 补给失败
                 // 关闭保护任务
@@ -178,7 +178,7 @@ public class ModTask {
             msg.SendMsg(client.player, "第" + nowSeg + "段飞行任务开始！", MsgLevel.info);
 
             // 开启鞘翅保护任务
-            protectThread = ModTaskManager.startThread(() -> ElytraTaskProtector(client, finalNowSeg));
+            protectThread = TaskManager.runTask(() -> ElytraTaskProtector(client, finalNowSeg));
             // 开启鞘翅任务
             try {
                 if (elytraTask(client, TargetX, TargetZ, type)) {
@@ -195,7 +195,7 @@ public class ModTask {
                 }
                 // 关闭保护任务
                 protectThread.interrupt();
-                ModTaskManager.delay(1);
+                TaskManager.delay(1);
 
             } catch (TaskException e) {
                 // 飞行失败
@@ -223,7 +223,7 @@ public class ModTask {
             return;
         float h = client.player.getHealth();
         while (true) {
-            if (!ModTaskManager.computeOnMain(() -> FireballProtector(client))) {
+            if (!TaskManager.computeOnMain(() -> FireballProtector(client))) {
                 ModStatus = ModStatuses.canceled;
                 taskFailed(client, "无法拦截火球！自动退出！", nowSeg - 1);
                 return;
@@ -233,7 +233,7 @@ public class ModTask {
                 taskFailed(client, "补给过程受伤！紧急！", nowSeg - 1);
                 return;
             }
-            ModTaskManager.delay(1);
+            TaskManager.delay(1);
         }
     }
 
@@ -253,7 +253,7 @@ public class ModTask {
                     return;
                 }
             }
-            ModTaskManager.delay(1);
+            TaskManager.delay(1);
         }
     }
 
@@ -274,7 +274,7 @@ public class ModTask {
             if (client.isOnThread())
                 BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
             else
-                ModTaskManager.runOnMainSync(
+                TaskManager.runOnMain(
                         () -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
         }
         if (seg == -1 && isAutoLogOnSeg1 || seg != -1 && isAutoLog) {

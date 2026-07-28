@@ -56,9 +56,9 @@ dependencies {
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     modCompileOnly "meteordevelopment:baritone:1.21.11-SNAPSHOT"
-
-    modImplementation "dev.rstminecraft:RustClientTemplate:1.0-SNAPSHOT",{changing=true }
-    include "dev.rstminecraft:RustClientTemplate:1.0-SNAPSHOT"
+//
+    modImplementation "dev.rstminecraft:RustClientCore:1.0-SNAPSHOT",{changing=true }
+    include "dev.rstminecraft:RustClientCore:1.0-SNAPSHOT"
 
 }
 
