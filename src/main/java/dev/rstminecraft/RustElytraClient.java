@@ -9,7 +9,6 @@ import dev.rstminecraft.RustClientCore.ModConfig;
 import dev.rstminecraft.RustClientCore.ModConfig.BoolConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.IntConfigEntry;
 import dev.rstminecraft.RustClientCore.MsgLevel;
-import dev.rstminecraft.RustClientCore.TaskManager;
 import dev.rstminecraft.utils.BaritoneControlChecker;
 import dev.rstminecraft.utils.TrajectoryRenderer;
 import net.fabricmc.api.ClientModInitializer;
@@ -97,28 +96,25 @@ public class RustElytraClient implements ClientModInitializer {
                 client.setScreen(new RSTScr(client.currentScreen));
 
             // 自动重装鞘翅，避免鞘翅耐久损耗（无尽鞘翅模式）
-            if (currentTick % 16 == 0 && client.player != null && (elytraDebugKey.isPressed() ||
+            if (currentTick % 12 == 0 && client.player != null && (elytraDebugKey.isPressed() ||
                                                                    ModTask.type == ModTask.TaskType.INFINITY_ELYTRA && client.player.isGliding() &&
                                                                    client.interactionManager != null && client.getNetworkHandler() != null &&
                                                                    (ModTask.status == ModTask.TaskStatus.LANDING ||
                                                                     ModTask.status == ModTask.TaskStatus.FLYING))) {
                 fixEyeHeight = true;
-                TaskManager.runTask(() -> {
-                    TaskManager.delay(3);
-                    fixEyeHeight = false;
-                });
                 client.player.stopGliding();
                 Objects.requireNonNull(client.getNetworkHandler()).sendPacket(
                         new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
-
+            if (currentTick % 12 == 3)
+                fixEyeHeight = false;
         });
 
 
         // 自动开始飞行
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             BaritoneControlChecker.lookFlag = false;
-            if (currentTick % 16 == 1 && client.player != null && (elytraDebugKey.isPressed() || ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
+            if (currentTick % 12 == 1 && client.player != null && (elytraDebugKey.isPressed() || ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
                                                                                                  client.interactionManager != null &&
                                                                                                  client.getNetworkHandler() != null &&
                                                                                                  (ModTask.status == ModTask.TaskStatus.LANDING ||

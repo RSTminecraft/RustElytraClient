@@ -43,9 +43,9 @@ import java.util.List;
 import java.util.Objects;
 
 import static dev.rstminecraft.FireballProtect.isHittingFireball;
+import static dev.rstminecraft.ModTask.*;
 import static dev.rstminecraft.RustClientCore.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
-import static dev.rstminecraft.ModTask.*;
 
 
 public class SupplyTask {
@@ -58,7 +58,8 @@ public class SupplyTask {
      * @param client 客户端对象
      */
     private static void WalkingToCenter(@NotNull MinecraftClient client) {
-        if (client.player == null) throw new TaskException("Player为null");
+        if (client.player == null)
+            throw new TaskException("Player为null");
         while (true) {
             BlockPos footBlock = client.player.getBlockPos();
             Vec3d CenterPos = new Vec3d(footBlock.getX() + 0.5, client.player.getY(), footBlock.getZ() + 0.5);
@@ -99,7 +100,8 @@ public class SupplyTask {
                 for (int j = -radius; j <= radius; j++) {
                     for (int k = -radius; k <= radius; k++) {
                         BlockPos target = client.player.getBlockPos().add(i, j, k);
-                        if (client.world.getBlockState(target).getBlock() == Blocks.FIRE) fire.add(target);
+                        if (client.world.getBlockState(target).getBlock() == Blocks.FIRE)
+                            fire.add(target);
                     }
                 }
             }
@@ -113,13 +115,16 @@ public class SupplyTask {
         }
     }
 
-    private static void mergeItemInInv(@NotNull MinecraftClient client, @NotNull stackChecker c, @NotNull ScreenHandler handler, int slotMin, int slotMax) {
-        if (client.player == null || client.interactionManager == null) throw new TaskException("null");
+    private static void mergeItemInInv(@NotNull MinecraftClient client, @NotNull stackChecker c, @NotNull ScreenHandler handler, int slotMin,
+                                       int slotMax) {
+        if (client.player == null || client.interactionManager == null)
+            throw new TaskException("null");
         while (true) {
             List<Integer> l = new ArrayList<>();
             for (int i = slotMin; i < slotMax; i++) {
                 ItemStack stack = handler.getSlot(i).getStack();
-                if (c.checker(stack)) l.add(i);
+                if (c.checker(stack))
+                    l.add(i);
             }
             l.sort(Comparator.comparingInt(i -> handler.getSlot(i).getStack().getCount()));
             if (l.size() < 2 || handler.getSlot(l.get(1)).getStack().getCount() == handler.getSlot(l.get(1)).getStack().getMaxCount())
@@ -138,22 +143,26 @@ public class SupplyTask {
     private static void SortAndCheckInv(@NotNull MinecraftClient client, boolean isXP) {
         runOnMain(() -> {
             ClientPlayerEntity player = client.player;
-            if (player == null || client.interactionManager == null) throw new TaskException("Player为null");
+            if (player == null || client.interactionManager == null)
+                throw new TaskException("Player为null");
 
             client.setScreen(new InventoryScreen(player));
             Screen screen2 = client.currentScreen;
-            if (!(screen2 instanceof HandledScreen<?> handled2)) throw new TaskException("窗口异常！");
+            if (!(screen2 instanceof HandledScreen<?> handled2))
+                throw new TaskException("窗口异常！");
 
             // 整理物品栏
             ScreenHandler handler2 = handled2.getScreenHandler();
 
-            for(int i = 36;i<45;i++){
+            for (int i = 36; i < 45; i++) {
                 Item item = handler2.getSlot(i).getStack().getItem();
-                if(item != Items.NETHERITE_PICKAXE && item != Items.DIAMOND_PICKAXE && item != Items.NETHERITE_SWORD && item != Items.DIAMOND_SWORD && item != Items.ENDER_CHEST && item != Food && item != Items.TOTEM_OF_UNDYING)
+                if (item != Items.NETHERITE_PICKAXE && item != Items.DIAMOND_PICKAXE && item != Items.NETHERITE_SWORD &&
+                    item != Items.DIAMOND_SWORD && item != Items.ENDER_CHEST && item != Food && item != Items.TOTEM_OF_UNDYING)
                     continue;
-                for(int j = 9;j < 36;j++){
+                for (int j = 9; j < 36; j++) {
                     Item item2 = handler2.getSlot(j).getStack().getItem();
-                    if(item2 != Items.NETHERITE_PICKAXE && item2 != Items.DIAMOND_PICKAXE && item2 != Items.NETHERITE_SWORD && item2 != Items.DIAMOND_SWORD && item2 != Items.ENDER_CHEST && item2 != Food && item2 != Items.TOTEM_OF_UNDYING){
+                    if (item2 != Items.NETHERITE_PICKAXE && item2 != Items.DIAMOND_PICKAXE && item2 != Items.NETHERITE_SWORD &&
+                        item2 != Items.DIAMOND_SWORD && item2 != Items.ENDER_CHEST && item2 != Food && item2 != Items.TOTEM_OF_UNDYING) {
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
                         client.interactionManager.clickSlot(handler2.syncId, j, 0, SlotActionType.PICKUP, player);
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
@@ -164,10 +173,12 @@ public class SupplyTask {
 
             for (int i = 9; i < 36; i++) {
                 Item item = handler2.getSlot(i).getStack().getItem();
-                while (!(item != Items.NETHERITE_PICKAXE && item != Items.DIAMOND_PICKAXE && item != Items.NETHERITE_SWORD && item != Items.DIAMOND_SWORD && item != Items.ENDER_CHEST && item != Food && item != Items.TOTEM_OF_UNDYING)) {
+                while (!(item != Items.NETHERITE_PICKAXE && item != Items.DIAMOND_PICKAXE && item != Items.NETHERITE_SWORD &&
+                         item != Items.DIAMOND_SWORD && item != Items.ENDER_CHEST && item != Food && item != Items.TOTEM_OF_UNDYING)) {
                     if (item == Items.NETHERITE_PICKAXE || item == Items.DIAMOND_PICKAXE) {
                         // 镐放到快捷栏第一格
-                        if (player.getInventory().getStack(0).getItem() == Items.DIAMOND_PICKAXE || player.getInventory().getStack(0).getItem() == Items.NETHERITE_PICKAXE) {
+                        if (player.getInventory().getStack(0).getItem() == Items.DIAMOND_PICKAXE ||
+                            player.getInventory().getStack(0).getItem() == Items.NETHERITE_PICKAXE) {
                             break;
                         }
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
@@ -176,7 +187,8 @@ public class SupplyTask {
 
                     } else if (item == Items.NETHERITE_SWORD || item == Items.DIAMOND_SWORD) {
                         // 剑放到第二格
-                        if (player.getInventory().getStack(1).getItem() == Items.DIAMOND_SWORD || player.getInventory().getStack(1).getItem() == Items.NETHERITE_SWORD) {
+                        if (player.getInventory().getStack(1).getItem() == Items.DIAMOND_SWORD ||
+                            player.getInventory().getStack(1).getItem() == Items.NETHERITE_SWORD) {
                             break;
                         }
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
@@ -188,11 +200,13 @@ public class SupplyTask {
                         client.interactionManager.clickSlot(handler2.syncId, 38, 0, SlotActionType.PICKUP, player);
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
 
-                        if (handler2.getSlot(i).getStack().getItem() == Items.ENDER_CHEST) break;
+                        if (handler2.getSlot(i).getStack().getItem() == Items.ENDER_CHEST)
+                            break;
                     } else if (item == Items.TOTEM_OF_UNDYING) {
                         // 图腾放到第四和第五格
                         if (player.getInventory().getStack(3).getItem() == Items.TOTEM_OF_UNDYING) {
-                            if (player.getInventory().getStack(4).getItem() == Items.TOTEM_OF_UNDYING) break;
+                            if (player.getInventory().getStack(4).getItem() == Items.TOTEM_OF_UNDYING)
+                                break;
                             client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
                             client.interactionManager.clickSlot(handler2.syncId, 40, 0, SlotActionType.PICKUP, player);
                             client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
@@ -206,7 +220,8 @@ public class SupplyTask {
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
                         client.interactionManager.clickSlot(handler2.syncId, 41, 0, SlotActionType.PICKUP, player);
                         client.interactionManager.clickSlot(handler2.syncId, i, 0, SlotActionType.PICKUP, player);
-                        if (handler2.getSlot(i).getStack().getItem() == Food) break;
+                        if (handler2.getSlot(i).getStack().getItem() == Food)
+                            break;
 
                     }
                     item = handler2.getSlot(i).getStack().getItem();
@@ -220,39 +235,50 @@ public class SupplyTask {
             int FoodCount = 0;
             for (int i = 0; i < 9; i++) {
                 ItemStack s = client.player.getInventory().getStack(i);
-                if (s.getItem() == Items.NETHERITE_PICKAXE || s.getItem() == Items.DIAMOND_PICKAXE && isStackHasEnchantment(s, Enchantments.EFFICIENCY, 4) && isStackHasEnchantment(s, Enchantments.SILK_TOUCH, 1))
+                if (s.getItem() == Items.NETHERITE_PICKAXE ||
+                    s.getItem() == Items.DIAMOND_PICKAXE && isStackHasEnchantment(s, Enchantments.EFFICIENCY, 4) &&
+                    isStackHasEnchantment(s, Enchantments.SILK_TOUCH, 1))
                     pickaxe = true;
-                else if (s.getItem() == Items.NETHERITE_SWORD || s.getItem() == Items.DIAMOND_SWORD) sword = true;
-                else if (s.getItem() == Items.ENDER_CHEST) enderChestCount += s.getCount();
-                else if (s.getItem() == Food) FoodCount += s.getCount();
+                else if (s.getItem() == Items.NETHERITE_SWORD || s.getItem() == Items.DIAMOND_SWORD)
+                    sword = true;
+                else if (s.getItem() == Items.ENDER_CHEST)
+                    enderChestCount += s.getCount();
+                else if (s.getItem() == Food)
+                    FoodCount += s.getCount();
             }
             int diamondArmor = 0;
             int goldenArmor = 0;
             boolean elytra;
             ItemStack s = client.player.getInventory().getStack(38);
-            elytra = s.getItem() == Items.ELYTRA && (!isXP || isStackHasEnchantment(s, Enchantments.MENDING, 1)) && isStackHasEnchantment(s, Enchantments.UNBREAKING, 3);
+            elytra = s.getItem() == Items.ELYTRA && (!isXP || isStackHasEnchantment(s, Enchantments.MENDING, 1)) &&
+                     isStackHasEnchantment(s, Enchantments.UNBREAKING, 3);
             s = client.player.getInventory().getStack(36);
             if ((s.getItem() == Items.DIAMOND_BOOTS || s.getItem() == Items.NETHERITE_BOOTS) && isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
                 diamondArmor++;
             if (s.getItem() == Items.GOLDEN_BOOTS && isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
                 goldenArmor++;
             s = client.player.getInventory().getStack(37);
-            if ((s.getItem() == Items.DIAMOND_LEGGINGS || s.getItem() == Items.NETHERITE_LEGGINGS) && isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
+            if ((s.getItem() == Items.DIAMOND_LEGGINGS || s.getItem() == Items.NETHERITE_LEGGINGS) &&
+                isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
                 diamondArmor++;
             if (s.getItem() == Items.GOLDEN_LEGGINGS && isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
                 goldenArmor++;
             s = client.player.getInventory().getStack(39);
-            if ((s.getItem() == Items.DIAMOND_HELMET || s.getItem() == Items.NETHERITE_HELMET) && isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
+            if ((s.getItem() == Items.DIAMOND_HELMET || s.getItem() == Items.NETHERITE_HELMET) &&
+                isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
                 diamondArmor++;
             if (s.getItem() == Items.GOLDEN_HELMET && isStackHasEnchantment(s, Enchantments.PROTECTION, 4))
                 goldenArmor++;
 
 
-            if (enderChestCount <= 2) throw new TaskException("物资不足：至少需要3个末影箱！");
+            if (enderChestCount <= 2)
+                throw new TaskException("物资不足：至少需要3个末影箱！");
             if (!pickaxe)
                 throw new TaskException("物资不足：需要有一把 经验修补吧 耐久3 效率4或效率5 的钻石或合金镐！");
-            if (!sword) throw new TaskException("物资不足：需要有一把的钻石或合金剑（不要求附魔）！");
-            if (!elytra) throw new TaskException("物资不足：需要穿戴 耐久3 经验修补的鞘翅！");
+            if (!sword)
+                throw new TaskException("物资不足：需要有一把的钻石或合金剑（不要求附魔）！");
+            if (!elytra)
+                throw new TaskException("物资不足：需要穿戴 耐久3 经验修补的鞘翅！");
             if (FoodCount <= 15)
                 throw new TaskException("物资不足：需要至少16个" + Food.getName().getString() + "!");
 
@@ -303,18 +329,24 @@ public class SupplyTask {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     // 不能与玩家重合
-                    if (0 == dx && 0 == dz) continue;
+                    if (0 == dx && 0 == dz)
+                        continue;
                     BlockPos target = origin.add(dx, dy, dz);
 
                     // 目标必须是空气或可替换方块（如草）
-                    if (!world.getBlockState(target).isAir() && !world.getBlockState(target).isReplaceable()) continue;
+                    if (!world.getBlockState(target).isAir() && !world.getBlockState(target).isReplaceable())
+                        continue;
 
                     // 下方必须是实心方块
                     BlockPos below = target.down();
-                    if (!world.getBlockState(below).isSolidBlock(world, below)) continue;
+                    if (!world.getBlockState(below).isSolidBlock(world, below))
+                        continue;
+                    if (world.getBlockState(below).getBlock() == Blocks.SOUL_SAND)
+                        continue;
                     // 上方必须是空气
                     BlockPos up = target.up();
-                    if (!world.getBlockState(up).isAir()) continue;
+                    if (!world.getBlockState(up).isAir())
+                        continue;
 
                     return target;
                 }
@@ -350,7 +382,8 @@ public class SupplyTask {
      */
     private static void PlaceAndOpenContainer(@NotNull MinecraftClient client, @NotNull BlockPos targetPos, int HotBarSlot) {
         ClientPlayerEntity player = client.player;
-        if (player == null || client.getNetworkHandler() == null) throw new TaskException("null");
+        if (player == null || client.getNetworkHandler() == null)
+            throw new TaskException("null");
         runOnMain(() -> {
             // 切换槽位
             player.getInventory().setSelectedSlot(HotBarSlot);
@@ -366,12 +399,14 @@ public class SupplyTask {
 
         // 尝试放置
         ActionResult result = computeOnMain(() -> {
-            if (client.interactionManager == null) throw new TaskException("null");
+            if (client.interactionManager == null)
+                throw new TaskException("null");
             player.swingHand(Hand.MAIN_HAND);
             return client.interactionManager.interactBlock(player, Hand.MAIN_HAND, hitResult);
         });
         // 检查结果
-        if (!result.isAccepted()) throw new TaskException("放置失败");
+        if (!result.isAccepted())
+            throw new TaskException("放置失败");
 
         delay(5);
         OpenContainer(client, targetPos);
@@ -385,18 +420,21 @@ public class SupplyTask {
      */
     private static void OpenContainer(@NotNull MinecraftClient client, @NotNull BlockPos targetPos) {
         ClientPlayerEntity player = client.player;
-        if (player == null || client.getNetworkHandler() == null) throw new TaskException("null");
+        if (player == null || client.getNetworkHandler() == null)
+            throw new TaskException("null");
         // 准备打开
         msg.SendMsg(client.player, "尝试放置末影箱成功，现在打开末影箱", MsgLevel.tip);
         BlockHitResult hitResult2 = new BlockHitResult(Vec3d.ofCenter(targetPos), Direction.UP, targetPos, false);
         ActionResult result = computeOnMain(() -> {
-            if (client.interactionManager == null) throw new TaskException("null");
+            if (client.interactionManager == null)
+                throw new TaskException("null");
             client.player.swingHand(Hand.MAIN_HAND);
             return client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hitResult2);
         });
         player.swingHand(Hand.MAIN_HAND);
         // 检查结果
-        if (!result.isAccepted()) throw new TaskException("打开失败");
+        if (!result.isAccepted())
+            throw new TaskException("打开失败");
     }
 
     /**
@@ -409,15 +447,18 @@ public class SupplyTask {
     private static @Nullable HandledScreen<?> ContainerScreenChecker(@NotNull MinecraftClient client, @NotNull String ContainerName) {
         Screen screen = client.currentScreen;
         // 不是容器界面
-        if (!(screen instanceof HandledScreen<?> handled)) return null;
+        if (!(screen instanceof HandledScreen<?> handled))
+            return null;
 
         // 不是目标容器
-        if (!ContainerName.equalsIgnoreCase(handled.getTitle().getString())) return null;
+        if (!ContainerName.equalsIgnoreCase(handled.getTitle().getString()))
+            return null;
 
         ScreenHandler handler = handled.getScreenHandler();
         int totalSlots = handler.slots.size();
         int containerSlots = totalSlots - 36;
-        if (containerSlots <= 0) containerSlots = 27;
+        if (containerSlots <= 0)
+            containerSlots = 27;
         boolean anyNonEmpty = false;
         for (int i = 0; i < containerSlots; i++) {
             Slot s = handler.getSlot(i);
@@ -446,19 +487,23 @@ public class SupplyTask {
      * @return 潜影盒拿取列表。
      */
     private static int[][] SupplyShulkerFinder(@NotNull MinecraftClient client, @NotNull HandledScreen<?> handled, boolean isXP) {
-        if (client.player == null) throw new TaskException("player为null");
+        if (client.player == null)
+            throw new TaskException("player为null");
 
         StringBuilder sb = new StringBuilder();
         int totalSlots = handled.getScreenHandler().slots.size();
         int containerSlots = totalSlots - 36;
-        if (containerSlots <= 0) containerSlots = 27;
+        if (containerSlots <= 0)
+            containerSlots = 27;
         int[][] data = new int[27][4];
 
         for (int i = 0; i < containerSlots; i++) {
             Slot s = handled.getScreenHandler().getSlot(i);
-            if (s == null) continue;
+            if (s == null)
+                continue;
             ItemStack stack = s.getStack();
-            if (stack == null || stack.isEmpty()) continue;
+            if (stack == null || stack.isEmpty())
+                continue;
             // 判断是否为潜影盒
             if (stack.getItem() instanceof BlockItem bi) {
                 if (bi.getBlock() instanceof ShulkerBoxBlock) {
@@ -475,7 +520,8 @@ public class SupplyTask {
                                 break;
                             }
                         }
-                        if (isEmpty) sb.append("  (shulker is empty)").append("\n");
+                        if (isEmpty)
+                            sb.append("  (shulker is empty)").append("\n");
                         else {
                             sb.append("  (slot ").append(i).append(") - shulker").append("\n");
 
@@ -487,7 +533,7 @@ public class SupplyTask {
                             }
                         }
                         data[i][2] = ShulkerInnerFinder(Food, inner);
-                        data[i][3] = ShulkerInnerFinder(Items.TOTEM_OF_UNDYING,inner);
+                        data[i][3] = ShulkerInnerFinder(Items.TOTEM_OF_UNDYING, inner);
 
                     } else {
                         sb.append("  (shulker is null...warning...)").append("\n");
@@ -502,7 +548,8 @@ public class SupplyTask {
         } else {
             String[] lines = sb.toString().split("\n");
             for (String line : lines) {
-                if (line == null || line.isEmpty()) continue;
+                if (line == null || line.isEmpty())
+                    continue;
                 msg.SendMsg(client.player, line, MsgLevel.debug);
             }
         }
@@ -599,7 +646,8 @@ public class SupplyTask {
      * @param client  客户端对象
      * @param handler 潜影盒窗口handler
      */
-    private static void PutOutSupply(@NotNull MinecraftClient client, @NotNull ScreenHandler handler, @NotNull List<Integer> replaceList, boolean isXP, int m, int n) {
+    private static void PutOutSupply(@NotNull MinecraftClient client, @NotNull ScreenHandler handler, @NotNull List<Integer> replaceList,
+                                     boolean isXP, int m, int n) {
         runOnMain(() -> {
             if (client.player == null || client.interactionManager == null)
                 throw new TaskException("Player为null");
@@ -615,7 +663,8 @@ public class SupplyTask {
             int a = 0, b = 0;
             for (int i = 0; i < 27; i++) {
                 ItemStack stack = handler.getSlot(i).getStack();
-                if (replaceList.isEmpty()) throw new TaskException("没多余槽位了");
+                if (replaceList.isEmpty())
+                    throw new TaskException("没多余槽位了");
                 if (stack.getItem() == Food) {
                     for (int j = 0; j < 9; j++) {
                         ItemStack s = client.player.getInventory().getStack(j);
@@ -629,14 +678,15 @@ public class SupplyTask {
                     continue;
                 }
 
-                if(stack.getItem() == Items.TOTEM_OF_UNDYING){
+                if (stack.getItem() == Items.TOTEM_OF_UNDYING) {
                     if (client.player.getInventory().getStack(3).getItem() == Items.TOTEM_OF_UNDYING) {
-                        if (client.player.getInventory().getStack(4).getItem() == Items.TOTEM_OF_UNDYING) continue;
-                        client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP,client. player);
+                        if (client.player.getInventory().getStack(4).getItem() == Items.TOTEM_OF_UNDYING)
+                            continue;
+                        client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
                         client.interactionManager.clickSlot(handler.syncId, 58, 0, SlotActionType.PICKUP, client.player);
                         client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
                     } else {
-                        client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP,client. player);
+                        client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
                         client.interactionManager.clickSlot(handler.syncId, 57, 0, SlotActionType.PICKUP, client.player);
                         client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
                     }
@@ -654,7 +704,8 @@ public class SupplyTask {
                     client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
                     client.interactionManager.clickSlot(handler.syncId, 18 + slot, 0, SlotActionType.PICKUP, client.player);
                     client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
-                } else if (stack.getItem() == Items.ELYTRA && !isXP && b < n && isStackHasEnchantment(stack, Enchantments.UNBREAKING, 3) && stack.getDamage() < 15) {
+                } else if (stack.getItem() == Items.ELYTRA && !isXP && b < n && isStackHasEnchantment(stack, Enchantments.UNBREAKING, 3) &&
+                           stack.getDamage() < 15) {
                     b++;
                     int slot = replaceList.removeFirst();
                     client.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, client.player);
@@ -672,7 +723,8 @@ public class SupplyTask {
      * @param ShulkerPos 潜影盒位置
      */
     private static void mineSupplyShulker(@NotNull MinecraftClient client, BlockPos ShulkerPos) {
-        if (client.player == null) throw new TaskException("Player为null");
+        if (client.player == null)
+            throw new TaskException("Player为null");
         int count = 0;
         PlayerInventory inventory = client.player.getInventory();
         for (int i = 0; i < inventory.getMainStacks().size(); i++) {
@@ -682,7 +734,8 @@ public class SupplyTask {
                 count += stack.getCount();
             }
         }
-        if (client.world == null) throw new TaskException("世界异常");
+        if (client.world == null)
+            throw new TaskException("世界异常");
         // 调用BaritoneAPI挖掉用过的补给盒
         int targetCount = count + 1;
         runOnMain(() -> {
@@ -691,8 +744,10 @@ public class SupplyTask {
         });
         // 等待baritone挖掘
         for (int i = 0; i < 40; i++) {
-            if (isHittingFireball()) i = 0;
-            if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive()) break;
+            if (isHittingFireball())
+                i = 0;
+            if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive())
+                break;
             if (i == 39) {
                 runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
                 throw new TaskException("挖掘异常？取消挖掘");
@@ -710,8 +765,10 @@ public class SupplyTask {
                     newCount += stack.getCount();
                 }
             }
-            if (newCount >= targetCount) break;
-            if (j == 9) throw new TaskException("挖掘补给箱失败!");
+            if (newCount >= targetCount)
+                break;
+            if (j == 9)
+                throw new TaskException("挖掘补给箱失败!");
             delay(1);
         }
     }
@@ -723,15 +780,19 @@ public class SupplyTask {
      * @param EnderChestPos 末影箱位置
      */
     private static void mineEnderChest(@NotNull MinecraftClient client, BlockPos EnderChestPos) {
-        if (client.player == null || client.world == null) throw new TaskException("null");
+        if (client.player == null || client.world == null)
+            throw new TaskException("null");
         int enderCount = countItemInInventory(client.player, Items.ENDER_CHEST);
         int obsidianCount = countItemInInventory(client.player, Items.OBSIDIAN);
-        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1, client.world.getBlockState(EnderChestPos).getBlock()));
+        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1,
+                                                                                             client.world.getBlockState(EnderChestPos).getBlock()));
 
         // 等待baritone挖掘
         for (int i = 0; i < 100; i++) {
-            if (isHittingFireball()) i = 0;
-            if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive() || countItemInInventory(client.player, Items.ENDER_CHEST) > enderCount) {
+            if (isHittingFireball())
+                i = 0;
+            if (!BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive() ||
+                countItemInInventory(client.player, Items.ENDER_CHEST) > enderCount) {
                 runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
                 break;
             }
@@ -764,27 +825,32 @@ public class SupplyTask {
             }
             delay(1);
         }
-        if (handled == null) throw new TaskException(ScreenName + "疑似打开失败");
+        if (handled == null)
+            throw new TaskException(ScreenName + "疑似打开失败");
         return handled;
     }
 
     private static int FireworkSupplyChecker(@NotNull MinecraftClient client) {
         int num = 0;
-        if (client.player == null) throw new TaskException("null");
+        if (client.player == null)
+            throw new TaskException("null");
         for (int i = 9; i < 36; i++) {
             ItemStack s = client.player.getInventory().getStack(i);
-            if (s.getItem() == Items.FIREWORK_ROCKET) num += s.getCount();
+            if (s.getItem() == Items.FIREWORK_ROCKET)
+                num += s.getCount();
         }
         return num;
     }
 
     private static int ElytraSupplyChecker(@NotNull MinecraftClient client, boolean isXP) {
         int num = 0;
-        if (client.player == null) throw new TaskException("null");
+        if (client.player == null)
+            throw new TaskException("null");
         for (int i = 9; i < 36; i++) {
             ItemStack s = client.player.getInventory().getStack(i);
             if (isXP) {
-                if (s.getItem() == Items.EXPERIENCE_BOTTLE) num += s.getCount();
+                if (s.getItem() == Items.EXPERIENCE_BOTTLE)
+                    num += s.getCount();
             } else {
                 if (s.getItem() == Items.ELYTRA && s.getDamage() <= 15 && isStackHasEnchantment(s, Enchantments.UNBREAKING, 3)) {
                     num += s.getCount();
@@ -822,7 +888,8 @@ public class SupplyTask {
             // 从后往前更新
             for (int ca = FireworkCount; ca >= 0; ca--) {
                 for (int cb = ElytraCount; cb >= 0; cb--) {
-                    if (dp[ca][cb][0] == Integer.MAX_VALUE) continue;
+                    if (dp[ca][cb][0] == Integer.MAX_VALUE)
+                        continue;
 
                     int na = Math.min(FireworkCount, ca + a);
                     int nb = Math.min(ElytraCount, cb + b);
@@ -860,7 +927,8 @@ public class SupplyTask {
      * @throws TaskException 通过抛出异常中断
      */
     static void supplyTask(@NotNull MinecraftClient client, @NotNull TaskType type) {
-        if (client.player == null) throw new TaskException("Player为null");
+        if (client.player == null)
+            throw new TaskException("Player为null");
 
         status = TaskStatus.SUPPLY;
         Food = FoodList[FoodIndex.get()];
@@ -871,14 +939,15 @@ public class SupplyTask {
         delay(2);
         // 整理物品栏
         ClientPlayerEntity player = client.player;
-        if (player == null || client.interactionManager == null) throw new TaskException("player为null");
+        if (player == null || client.interactionManager == null)
+            throw new TaskException("player为null");
         SortAndCheckInv(client, type == TaskType.EXP_BOTTLE);
         delay(2);
 
 
         int FireworkInNeed = 0;
         int ElytraInNeed = 0;
-        switch (type){
+        switch (type) {
             case ELYTRA -> {
                 FireworkInNeed = (int) Math.floor(Math.max(21 * 64 - FireworkSupplyChecker(client), 0) / 64.0);
                 ElytraInNeed = 5 - ElytraSupplyChecker(client, false);
@@ -890,10 +959,12 @@ public class SupplyTask {
             case INFINITY_ELYTRA -> FireworkInNeed = (int) Math.floor(Math.max(26 * 64 - FireworkSupplyChecker(client), 0) / 64.0);
         }
 
-        boolean hasTotem = client.player.getInventory().getStack(3).getItem() == Items.TOTEM_OF_UNDYING || client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING;
+        boolean hasTotem = client.player.getInventory().getStack(3).getItem() == Items.TOTEM_OF_UNDYING ||
+                           client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING;
         boolean hasFood = client.player.getInventory().getStack(5).getItem() == Food && client.player.getInventory().getStack(5).getCount() > 18;
 
-        if (FireworkInNeed == 0 && ElytraInNeed == 0 && hasFood && hasTotem) return;
+        if (FireworkInNeed == 0 && ElytraInNeed == 0 && hasFood && hasTotem)
+            return;
 
         msg.SendMsg(client.player, "所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + "组附魔之瓶/鞘翅", MsgLevel.info);
 
@@ -902,12 +973,14 @@ public class SupplyTask {
 
         // 寻找末影箱
         int slot = findItemInHotBar(player, Items.ENDER_CHEST);
-        if (slot == -1) throw new TaskException("无末影箱");
+        if (slot == -1)
+            throw new TaskException("无末影箱");
         String EnderChestName = player.getInventory().getStack(slot).getName().getString();
 
         // 寻找放置地点
         BlockPos EnderChestTargetPos = findPlaceTarget(player);
-        if (EnderChestTargetPos == null) throw new TaskException("附近没有合适的位置放置末影箱");
+        if (EnderChestTargetPos == null)
+            throw new TaskException("附近没有合适的位置放置末影箱");
 
         // 放置并打开末影箱
         PlaceAndOpenContainer(client, EnderChestTargetPos, slot);
@@ -919,16 +992,20 @@ public class SupplyTask {
         int[][] ShulkerData = SupplyShulkerFinder(client, EnderChestHandled, type == TaskType.EXP_BOTTLE);
 
         List<Integer> ShulkerList = ComputeShulker(FireworkInNeed, ElytraInNeed, ShulkerData);
-        if (ShulkerList.isEmpty()) throw new TaskException("末影箱中物资不足！");
-        else if (ShulkerList.size() > 4) throw new TaskException("末影箱中物品过于分散！");
-        else msg.SendMsg(client.player, "所需的潜影盒槽位列表为：" + ShulkerList, MsgLevel.info);
+        if (ShulkerList.isEmpty())
+            throw new TaskException("末影箱中物资不足！");
+        else if (ShulkerList.size() > 4)
+            throw new TaskException("末影箱中物品过于分散！");
+        else
+            msg.SendMsg(client.player, "所需的潜影盒槽位列表为：" + ShulkerList, MsgLevel.info);
         List<Integer> replaceSlot = new ArrayList<>();
         int m = 0, n = 0;
         for (int i = 9; i < 36; i++) {
             ItemStack s = client.player.getInventory().getStack(i);
             if (s.getItem() == Items.FIREWORK_ROCKET) {
-                if (s.getCount() != s.getMaxCount()) continue;
-                switch (type){
+                if (s.getCount() != s.getMaxCount())
+                    continue;
+                switch (type) {
                     case ELYTRA -> {
                         if (m < 21) {
                             m++;
@@ -936,13 +1013,13 @@ public class SupplyTask {
                         }
                     }
                     case EXP_BOTTLE -> {
-                        if(m < 23){
+                        if (m < 23) {
                             m++;
                             continue;
                         }
                     }
                     case INFINITY_ELYTRA -> {
-                        if(m < 26){
+                        if (m < 26) {
                             m++;
                             continue;
                         }
@@ -961,7 +1038,8 @@ public class SupplyTask {
                     continue;
                 }
                 replaceSlot.add(i);
-            } else replaceSlot.add(i);
+            } else
+                replaceSlot.add(i);
         }
         msg.SendMsg(client.player, "可替换列表为" + replaceSlot, MsgLevel.debug);
         if (client.player.getInventory().getStack(findItemInHotBar(client.player, Food)).getCount() < 30) {
@@ -974,7 +1052,8 @@ public class SupplyTask {
             }
             if (slot2 == -1)
                 throw new TaskException("无可用" + Food.getName().getString() + "!");
-            else ShulkerList.add(slot2);
+            else
+                ShulkerList.add(slot2);
         }
         if (client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING) {
             int slot2 = -1, max = 0;
@@ -986,7 +1065,8 @@ public class SupplyTask {
             }
             if (slot2 == -1 || max < 2)
                 throw new TaskException("无可用图腾!");
-            else ShulkerList.add(slot2);
+            else
+                ShulkerList.add(slot2);
         }
         delay(1);
         for (int SupplySlot : ShulkerList) {
@@ -994,26 +1074,35 @@ public class SupplyTask {
             EnderChestHandled = WaitForScreen(client, EnderChestName);
 
 
-            if (SupplySlot > 26 || SupplySlot < 0) throw new TaskException("所需槽位异常");
-            else msg.SendMsg(client.player, "准备拿出" + SupplySlot, MsgLevel.tip);
+            if (SupplySlot > 26 || SupplySlot < 0)
+                throw new TaskException("所需槽位异常");
+            else
+                msg.SendMsg(client.player, "准备拿出" + SupplySlot, MsgLevel.tip);
             // 找可以用来放潜影盒的槽位
             slot = -1;
             for (int j = 6; j < 9; j++) {
                 ItemStack stack2 = client.player.getInventory().getStack(j);
-                if (stack2.isEmpty() || stack2.getItem() != Items.ENDER_CHEST && stack2.getItem() != Items.DIAMOND_PICKAXE && stack2.getItem() != Items.NETHERITE_PICKAXE && stack2.getItem() != Items.DIAMOND_SWORD && stack2.getItem() != Items.NETHERITE_SWORD && stack2.getItem() != Food && stack2.getItem() != Items.TOTEM_OF_UNDYING) {
+                if (stack2.isEmpty() || stack2.getItem() != Items.ENDER_CHEST && stack2.getItem() != Items.DIAMOND_PICKAXE &&
+                                        stack2.getItem() != Items.NETHERITE_PICKAXE && stack2.getItem() != Items.DIAMOND_SWORD &&
+                                        stack2.getItem() != Items.NETHERITE_SWORD && stack2.getItem() != Food &&
+                                        stack2.getItem() != Items.TOTEM_OF_UNDYING) {
                     slot = j;
                     break;
                 }
             }
-            if (slot == -1) throw new TaskException("没有快捷栏位置可以用于取出潜影盒");
+            if (slot == -1)
+                throw new TaskException("没有快捷栏位置可以用于取出潜影盒");
 
             // 取出潜影盒
             int ShulkerSlot = slot;
             HandledScreen<?> finalEnderChestHandled = EnderChestHandled;
             runOnMain(() -> {
-                client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
-                client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
-                client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
+                client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP,
+                                                    client.player);
+                client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP,
+                                                    client.player);
+                client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP,
+                                                    client.player);
                 finalEnderChestHandled.close();
             });
             msg.SendMsg(client.player, "取出成功！", MsgLevel.tip);
@@ -1028,7 +1117,8 @@ public class SupplyTask {
 
             // 找空位放置潜影盒
             BlockPos ShulkerTargetPos = findPlaceTarget(player);
-            if (ShulkerTargetPos == null) throw new TaskException("附近没有合适的位置放置潜影盒");
+            if (ShulkerTargetPos == null)
+                throw new TaskException("附近没有合适的位置放置潜影盒");
 
             // 放置并打开潜影盒
             PlaceAndOpenContainer(client, ShulkerTargetPos, ShulkerSlot);
@@ -1036,14 +1126,18 @@ public class SupplyTask {
 
             // 等待潜影盒窗口
             HandledScreen<?> ShulkerHandled = WaitForScreen(client, ShulkerName);
-            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, ShulkerHandled.getScreenHandler(), 0, 27);
-            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, ShulkerHandled.getScreenHandler(), 0, 27);
-            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, ShulkerHandled.getScreenHandler(), 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, ShulkerHandled.getScreenHandler(), 0,
+                           27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, ShulkerHandled.getScreenHandler(), 0,
+                           27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, ShulkerHandled.getScreenHandler(), 0,
+                           27);
             mergeItemInInv(client, s2 -> s2.getItem() == Items.EXPERIENCE_BOTTLE, ShulkerHandled.getScreenHandler(), 0, 27);
             // 拿出补给
             int shouldPutOutFirework = Math.min(FireworkInNeed, ShulkerData[SupplySlot][0]);
             int shouldPutOutElytra = Math.min(ElytraInNeed, ShulkerData[SupplySlot][1]);
-            PutOutSupply(client, ShulkerHandled.getScreenHandler(), replaceSlot, type == TaskType.EXP_BOTTLE, shouldPutOutFirework, shouldPutOutElytra);
+            PutOutSupply(client, ShulkerHandled.getScreenHandler(), replaceSlot, type == TaskType.EXP_BOTTLE, shouldPutOutFirework,
+                         shouldPutOutElytra);
             msg.SendMsg(client.player, "取出补给物品成功", MsgLevel.tip);
             FireworkInNeed -= shouldPutOutFirework;
             ElytraInNeed -= shouldPutOutElytra;
@@ -1063,9 +1157,12 @@ public class SupplyTask {
             HandledScreen<?> finalEnderChestHandled1 = EnderChestHandled;
             runOnMain(() -> {
 
-                client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
-                client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP, client.player);
-                client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP, client.player);
+                client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP,
+                                                    client.player);
+                client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP,
+                                                    client.player);
+                client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP,
+                                                    client.player);
             });
             msg.SendMsg(client.player, "放回完毕", MsgLevel.tip);
             delay(1);
