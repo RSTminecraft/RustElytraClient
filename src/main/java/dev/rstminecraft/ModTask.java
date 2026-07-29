@@ -19,7 +19,7 @@ import static dev.rstminecraft.SupplyTask.supplyTask;
 
 public class ModTask {
     public static TaskType type;
-    public static volatile TaskStatus status = TaskStatus.NO_TASK;
+    public static volatile @NotNull TaskStatus status = TaskStatus.NO_TASK;
     private static int TargetX, TargetZ;
     private static boolean isAutoLog, isAutoLogOnSeg1;
     private static BlockPos StartPos;

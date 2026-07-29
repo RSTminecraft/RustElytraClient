@@ -1,6 +1,7 @@
 package dev.rstminecraft.mixin;
 
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
@@ -17,7 +18,7 @@ public class RstMixinPlugin implements IMixinConfigPlugin {
     public static final Logger MODLOGGER = LoggerFactory.getLogger("rust-RstMixinPlugin-client");
 
     @Override
-    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+    public boolean shouldApplyMixin(@NotNull String targetClassName, @NotNull String mixinClassName) {
         MODLOGGER.info("try mixin to {} from {}", targetClassName, mixinClassName);
         if (mixinClassName.contains("dev.rstminecraft.mixin.BaritoneUpdateTarget") || mixinClassName.contains("dev.rstminecraft.mixin.PausedTestMixin")) {
             ClassInfo info = ClassInfo.forName(targetClassName);

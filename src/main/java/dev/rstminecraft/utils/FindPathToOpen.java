@@ -153,7 +153,7 @@ public class FindPathToOpen {
      * 计算沿某个方向飞行的开阔度分数（分数越高越开阔）
      */
     private static double computeOpennessScore(@NotNull World world, @NotNull Vec3d start, @NotNull Vec3d dir,
-                                               double maxDist, double surroundDist, ClientPlayerEntity player) {
+                                               double maxDist, double surroundDist, @NotNull ClientPlayerEntity player) {
         // 在路径上取4个点（10,20,30,40米处）
         double[][] sampleDistances = {{10,0.15}, {20,0.35}, {30,0.35}, {40,0.15}};
         double score = 0;

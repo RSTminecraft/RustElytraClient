@@ -80,7 +80,7 @@ public class SupplyTask {
         }
     }
 
-    public static int getFireworkLevel(ItemStack stack) {
+    public static int getFireworkLevel(@NotNull ItemStack stack) {
         if (stack.isEmpty() || !stack.isOf(Items.FIREWORK_ROCKET)) {
             return 0;
         }
@@ -113,7 +113,7 @@ public class SupplyTask {
         }
     }
 
-    private static void mergeItemInInv(@NotNull MinecraftClient client, stackChecker c, @NotNull ScreenHandler handler, int slotMin, int slotMax) {
+    private static void mergeItemInInv(@NotNull MinecraftClient client, @NotNull stackChecker c, @NotNull ScreenHandler handler, int slotMin, int slotMax) {
         if (client.player == null || client.interactionManager == null) throw new TaskException("null");
         while (true) {
             List<Integer> l = new ArrayList<>();
@@ -222,7 +222,7 @@ public class SupplyTask {
                 ItemStack s = client.player.getInventory().getStack(i);
                 if (s.getItem() == Items.NETHERITE_PICKAXE || s.getItem() == Items.DIAMOND_PICKAXE && isStackHasEnchantment(s, Enchantments.EFFICIENCY, 4) && isStackHasEnchantment(s, Enchantments.SILK_TOUCH, 1))
                     pickaxe = true;
-                else if ((s.getItem() == Items.NETHERITE_SWORD || s.getItem() == Items.DIAMOND_SWORD)) sword = true;
+                else if (s.getItem() == Items.NETHERITE_SWORD || s.getItem() == Items.DIAMOND_SWORD) sword = true;
                 else if (s.getItem() == Items.ENDER_CHEST) enderChestCount += s.getCount();
                 else if (s.getItem() == Food) FoodCount += s.getCount();
             }
@@ -259,10 +259,10 @@ public class SupplyTask {
             if (inspectArmor.get() && (goldenArmor != 1 || diamondArmor != 2))
                 throw new TaskException("物资不足：需要穿戴有 保护4 推荐含有经验修补和耐久3 的一件金质盔甲和2件合金或钻石盔甲！");
 
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler2, 9, 36);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, handler2, 9, 36);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, handler2, 9, 36);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.EXPERIENCE_BOTTLE, handler2, 9, 36);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler2, 9, 36);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, handler2, 9, 36);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, handler2, 9, 36);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.EXPERIENCE_BOTTLE, handler2, 9, 36);
 
             handled2.close();
         });
@@ -606,10 +606,10 @@ public class SupplyTask {
             msg.SendMsg(client.player, "本盒需要取出" + m + "组烟花," + n + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.debug);
 
 
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler, 0, 27);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, handler, 0, 27);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, handler, 0, 27);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.EXPERIENCE_BOTTLE, handler, 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler, 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, handler, 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, handler, 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.EXPERIENCE_BOTTLE, handler, 0, 27);
 
 
             int a = 0, b = 0;
@@ -802,7 +802,7 @@ public class SupplyTask {
      * @param ShulkerData   潜影盒数据，二维数组。ShulkerData[m][0] 表示第m个潜影盒中的烟花数量；ShulkerData[m][1] 表示第m个潜影盒中的鞘翅数量
      * @return 操作列表（需要拿出的潜影盒列表）
      */
-    public static @NotNull List<Integer> ComputeShulker(int FireworkCount, int ElytraCount, int[][] ShulkerData) {
+    public static @NotNull List<Integer> ComputeShulker(int FireworkCount, int ElytraCount, int[] @NotNull [] ShulkerData) {
         int totalBoxes = ShulkerData.length;
 
         int[][][] dp = new int[FireworkCount + 1][ElytraCount + 1][2];
@@ -827,7 +827,7 @@ public class SupplyTask {
                     int na = Math.min(FireworkCount, ca + a);
                     int nb = Math.min(ElytraCount, cb + b);
                     int newCount = dp[ca][cb][0] + 1;
-                    int newMask = dp[ca][cb][1] | (1 << i);
+                    int newMask = dp[ca][cb][1] | 1 << i;
 
                     if (newCount < dp[na][nb][0]) {
                         dp[na][nb][0] = newCount;
@@ -844,7 +844,7 @@ public class SupplyTask {
         int mask = dp[FireworkCount][ElytraCount][1];
         List<Integer> result = new ArrayList<>();
         for (int i = 0; i < totalBoxes; i++) {
-            if ((mask & (1 << i)) != 0) {
+            if ((mask & 1 << i) != 0) {
                 result.add(i);
             }
         }
@@ -859,7 +859,7 @@ public class SupplyTask {
      * @param type   补给类型
      * @throws TaskException 通过抛出异常中断
      */
-    static void supplyTask(@NotNull MinecraftClient client, TaskType type) {
+    static void supplyTask(@NotNull MinecraftClient client, @NotNull TaskType type) {
         if (client.player == null) throw new TaskException("Player为null");
 
         status = TaskStatus.SUPPLY;
@@ -1036,10 +1036,10 @@ public class SupplyTask {
 
             // 等待潜影盒窗口
             HandledScreen<?> ShulkerHandled = WaitForScreen(client, ShulkerName);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, ShulkerHandled.getScreenHandler(), 0, 27);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, ShulkerHandled.getScreenHandler(), 0, 27);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, ShulkerHandled.getScreenHandler(), 0, 27);
-            mergeItemInInv(client, (s2) -> s2.getItem() == Items.EXPERIENCE_BOTTLE, ShulkerHandled.getScreenHandler(), 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, ShulkerHandled.getScreenHandler(), 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, ShulkerHandled.getScreenHandler(), 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, ShulkerHandled.getScreenHandler(), 0, 27);
+            mergeItemInInv(client, s2 -> s2.getItem() == Items.EXPERIENCE_BOTTLE, ShulkerHandled.getScreenHandler(), 0, 27);
             // 拿出补给
             int shouldPutOutFirework = Math.min(FireworkInNeed, ShulkerData[SupplySlot][0]);
             int shouldPutOutElytra = Math.min(ElytraInNeed, ShulkerData[SupplySlot][1]);

@@ -58,17 +58,17 @@ public class RustElytraClient implements ClientModInitializer {
     public static volatile @NotNull ModStatuses ModStatus = ModStatuses.idle;
 
     // region 配置文件与配置项
-    public static ModConfig config = new ModConfig(FabricLoader.getInstance().getConfigDir().resolve("RSTConfig" + ".json"));
-    public static IntConfigEntry FoodIndex = config.new IntConfigEntry("FoodIndex", 0);
-    public static IntConfigEntry HudX = config.new IntConfigEntry("HudX", 0);
-    public static IntConfigEntry HudY = config.new IntConfigEntry("HudY", 0);
-    public static BoolConfigEntry FirstUse = config.new BoolConfigEntry("FirstUse", true);
-    public static BoolConfigEntry isAutoLog = config.new BoolConfigEntry("isAutoLog", true);
-    public static BoolConfigEntry isAutoLogOnSeg1 = config.new BoolConfigEntry("isAutoLogOnSeg1", false);
-    public static BoolConfigEntry DisplayDebug = config.new BoolConfigEntry("DisplayDebug", false);
-    public static BoolConfigEntry inspectArmor = config.new BoolConfigEntry("inspectArmor", true);
-    public static BoolConfigEntry verboseDisplayDebug = config.new BoolConfigEntry("verboseDisplayDebug", false);
-    public static BoolConfigEntry enableHud = config.new BoolConfigEntry("enableHud", true);
+    public static @NotNull ModConfig config = new ModConfig(FabricLoader.getInstance().getConfigDir().resolve("RSTConfig" + ".json"));
+    public static @NotNull IntConfigEntry FoodIndex = config.new IntConfigEntry("FoodIndex", 0);
+    public static @NotNull IntConfigEntry HudX = config.new IntConfigEntry("HudX", 0);
+    public static @NotNull IntConfigEntry HudY = config.new IntConfigEntry("HudY", 0);
+    public static @NotNull BoolConfigEntry FirstUse = config.new BoolConfigEntry("FirstUse", true);
+    public static @NotNull BoolConfigEntry isAutoLog = config.new BoolConfigEntry("isAutoLog", true);
+    public static @NotNull BoolConfigEntry isAutoLogOnSeg1 = config.new BoolConfigEntry("isAutoLogOnSeg1", false);
+    public static @NotNull BoolConfigEntry DisplayDebug = config.new BoolConfigEntry("DisplayDebug", false);
+    public static @NotNull BoolConfigEntry inspectArmor = config.new BoolConfigEntry("inspectArmor", true);
+    public static @NotNull BoolConfigEntry verboseDisplayDebug = config.new BoolConfigEntry("verboseDisplayDebug", false);
+    public static @NotNull BoolConfigEntry enableHud = config.new BoolConfigEntry("enableHud", true);
     // endregion
 
     // 信息发送器

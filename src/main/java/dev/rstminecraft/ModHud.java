@@ -2,11 +2,12 @@ package dev.rstminecraft;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import org.jetbrains.annotations.NotNull;
 
 import static dev.rstminecraft.RustElytraClient.*;
 
 public class ModHud {
-    public static void DrawHud(DrawContext context) {
+    public static void DrawHud(@NotNull DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (!enableHud.get() || ModTask.status == ModTask.TaskStatus.NO_TASK || client.player == null)
             return;

@@ -94,9 +94,7 @@ public class ElytraTask {
         if (client.player.getBlockPos().isWithinDistance(oldPos, 100))
             throw new TaskException("距离异常！");
         arrived = true;
-        msg.SendMsg(client.player,
-                    "到达目的地！本段飞行距离：" + Math.sqrt(client.player.getBlockPos().getSquaredDistance(segPos)),
-                    MsgLevel.info);
+        msg.SendMsg(client.player, "到达目的地！本段飞行距离：" + Math.sqrt(client.player.getBlockPos().getSquaredDistance(segPos)), MsgLevel.info);
         for (int i = 0; i < 60; i++) {
             if (client.player.getVelocity().getX() < 0.01 && client.player.getVelocity().getZ() < 0.01)
                 return;
@@ -129,10 +127,10 @@ public class ElytraTask {
         if (slots <= 1) {
             for (int i = 0; i < 9; i++) {
                 ItemStack s = inv.getStack(i);
-                if (s.isEmpty() || s.getItem() != Items.ENDER_CHEST && s.getItem() != Items.DIAMOND_PICKAXE &&
-                                   s.getItem() != Items.NETHERITE_PICKAXE && s.getItem() != Items.DIAMOND_SWORD &&
-                                   s.getItem() != Items.NETHERITE_SWORD && s.getItem() != Food &&
-                                   s.getItem() != Items.TOTEM_OF_UNDYING)
+                if (s.isEmpty() ||
+                    s.getItem() != Items.ENDER_CHEST && s.getItem() != Items.DIAMOND_PICKAXE && s.getItem() != Items.NETHERITE_PICKAXE &&
+                    s.getItem() != Items.DIAMOND_SWORD && s.getItem() != Items.NETHERITE_SWORD && s.getItem() != Food &&
+                    s.getItem() != Items.TOTEM_OF_UNDYING)
                     replaceList.add(i);
             }
             if (replaceList.size() <= slots)
@@ -161,28 +159,23 @@ public class ElytraTask {
                         int slot = replaceList.removeFirst();
                         int finalI = i;
                         runOnMain(() -> {
-                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP,
-                                                                client.player);
-                            client.interactionManager.clickSlot(handler.syncId, slot + 36, 0, SlotActionType.PICKUP,
-                                                                client.player);
-                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP,
-                                                                client.player);
+                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP, client.player);
+                            client.interactionManager.clickSlot(handler.syncId, slot + 36, 0, SlotActionType.PICKUP, client.player);
+                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP, client.player);
                         });
                         c += stack.getCount();
                         continue;
                     }
                     c += stack.getCount();
                     int finalI = i;
-                    runOnMain(() -> client.interactionManager.clickSlot(handler.syncId, finalI, 0,
-                                                                        SlotActionType.QUICK_MOVE, client.player));
+                    runOnMain(() -> client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.QUICK_MOVE, client.player));
                 }
             }
             runOnMain(handled::close);
 
             boolean hasTotem = client.player.getInventory().getStack(3).getItem() == Items.TOTEM_OF_UNDYING ||
                                client.player.getInventory().getStack(4).getItem() != Items.TOTEM_OF_UNDYING;
-            boolean hasFood = client.player.getInventory().getStack(5).getItem() == Food &&
-                              client.player.getInventory().getStack(5).getCount() > 18;
+            boolean hasFood = client.player.getInventory().getStack(5).getItem() == Food && client.player.getInventory().getStack(5).getCount() > 18;
 
             if ((c <= 128 || !hasFood || !hasTotem) && !noFirework) {
                 if (!client.player.getBlockPos().isWithinDistance(segPos, 50000 * timerMultiplier)) {
@@ -226,8 +219,7 @@ public class ElytraTask {
                 else {
                     spinTimes++;
                     if (spinTimes > 1) {
-                        runOnMain(
-                                () -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("p"));
+                        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("p"));
                         TaskManager.runTask(() -> {
                             delay(20);
                             runOnMain(() -> {
@@ -260,9 +252,9 @@ public class ElytraTask {
             throw new TaskException("null");
         int slot2 = -1;
         // 自动进食，恢复血量
-        if (!client.player.isInLava() && client.player.getVelocity().length() > 1.3 &&
-            (client.player.getHungerManager().getFoodLevel() < 16 ||
-             client.player.getHealth() < 15 && client.player.getHungerManager().getFoodLevel() < 20)) {
+        if (!client.player.isInLava() && client.player.getVelocity().length() > 1.3 && (client.player.getHungerManager().getFoodLevel() < 16 ||
+                                                                                        client.player.getHealth() < 15 &&
+                                                                                        client.player.getHungerManager().getFoodLevel() < 20)) {
             msg.SendMsg(client.player, "准备食用", MsgLevel.tip);
             for (int i = 0; i < 8; i++) {
                 ItemStack s = client.player.getInventory().getStack(i);
@@ -286,8 +278,7 @@ public class ElytraTask {
                     client.options.useKey.setPressed(false);
                     return;
                 }
-                if (client.player.getVelocity().length() < 0.7 || client.player.isInLava() ||
-                    client.player.isOnGround()) {
+                if (client.player.getVelocity().length() < 0.7 || client.player.isInLava() || client.player.isOnGround()) {
                     // 速度过低，放弃吃食物，防止影响baritone寻路
                     msg.SendMsg(client.player, "放弃吃食物！！！", MsgLevel.tip);
                     client.options.useKey.setPressed(false);
@@ -534,10 +525,8 @@ public class ElytraTask {
             if (yh != 0) {
                 client.player.setPitch(-90);
                 client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-                TrajectoryRenderer.drawTrajectory(
-                        predictPath(20, client.player.getEntityPos(), client.player.getVelocity(), getLookVec(0, -90)));
-                TrajectoryRenderer.markPos(
-                        BlockPos.ofFloored(client.player.getEntityPos().add(0, (int) yh, 0)).add(0, 1, 0));
+                TrajectoryRenderer.drawTrajectory(predictPath(20, client.player.getEntityPos(), client.player.getVelocity(), getLookVec(0, -90)));
+                TrajectoryRenderer.markPos(BlockPos.ofFloored(client.player.getEntityPos().add(0, (int) yh, 0)).add(0, 1, 0));
                 Vec3d targetPos = client.player.getEntityPos().add(0, yh, 0);
                 for (int i = 0; i < 12; i++) {
                     if (client.player.getEntityPos().getY() > targetPos.getY())
@@ -556,7 +545,7 @@ public class ElytraTask {
                 cameraMixinSwitch = true;
                 int tick = currentTick;
                 while (client.player.getEntityPos().getY() > targetPos.getY() + 0.5) {
-                    fixedYaw = client.player.getYaw() + (180 * ((currentTick - tick) % 2));
+                    fixedYaw = client.player.getYaw() + 180 * ((currentTick - tick) % 2);
                     fixedPitch = 0;
                     runOnMain(() -> {
                         client.player.setPitch(0);
@@ -580,15 +569,13 @@ public class ElytraTask {
             client.player.setYaw(t.yaw);
             client.player.setPitch(t.pitch);
             client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-            TrajectoryRenderer.drawTrajectory(predictPath(40, client.player.getEntityPos(), client.player.getVelocity(),
-                                                          getLookVec(t.yaw, t.pitch)));
+            TrajectoryRenderer.drawTrajectory(predictPath(40, client.player.getEntityPos(), client.player.getVelocity(), getLookVec(t.yaw, t.pitch)));
             TrajectoryRenderer.markPos(t.end);
 
             BlockPos TakePos = t.end;
             delay(1);
             while (!(client.player.getBlockPos().isWithinDistance(TakePos, 1.5) ||
-                     (Vec3d.of(TakePos).subtract(client.player.getEntityPos()).dotProduct(client.player.getVelocity()) <
-                      0))) {
+                     Vec3d.of(TakePos).subtract(client.player.getEntityPos()).dotProduct(client.player.getVelocity()) < 0)) {
                 if (client.player.isInLava())
                     inLavaTicks.accumulate();
                 if (inLavaTicks.getCount() > 15)
@@ -624,8 +611,7 @@ public class ElytraTask {
             BaritoneAPI.getProvider().getPrimaryBaritone().getBuilderProcess().clearArea(
                     new BlockPos((int) Math.floor(client.player.getEntityPos().getX() - 0.3), bp.getFirst().getY(),
                                  (int) Math.floor(client.player.getEntityPos().getZ() - 0.3)),
-                    new BlockPos((int) Math.floor(client.player.getEntityPos().getX() - 0.3) + 1,
-                                 bp.getFirst().getY() + 1,
+                    new BlockPos((int) Math.floor(client.player.getEntityPos().getX() - 0.3) + 1, bp.getFirst().getY() + 1,
                                  (int) Math.floor(client.player.getEntityPos().getZ() - 0.3) + 1));
         });
         for (int i = 0; i < 200; i++) {
@@ -635,8 +621,7 @@ public class ElytraTask {
             if (!BaritoneAPI.getProvider().getPrimaryBaritone().getBuilderProcess().isActive() || bp2.isEmpty()) {
                 msg.SendMsg(client.player, "清除完毕", MsgLevel.tip);
                 oldPos = client.player.getBlockPos();
-                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(
-                        new BlockPos(x, 0, z)));
+                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(new BlockPos(x, 0, z)));
                 delay(10);
                 return;
             }
@@ -735,14 +720,12 @@ public class ElytraTask {
         if (verboseDisplayDebug)
             msg.SendMsg(client.player, "未加载区块比例：" + a, MsgLevel.debug);
         if (a > 0.4 && getPotentialJumpBlockingBlocks(-7).isEmpty()) {
-            msg.SendMsg(client.player, "未加载区块太多，暂停baritone等待加载，接下来可能出现视角剧烈晃动！请不要直视屏幕！",
-                        MsgLevel.warning);
+            msg.SendMsg(client.player, "未加载区块太多，暂停baritone等待加载，接下来可能出现视角剧烈晃动！请不要直视屏幕！", MsgLevel.warning);
             runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("p"));
             cameraMixinSwitch = true;
             int tick = currentTick;
-            while (calculateUnloadedChunks(client, client.player) > 0.05 &&
-                   getPotentialJumpBlockingBlocks(-3).isEmpty()) {
-                fixedYaw = client.player.getYaw() + (180 * ((currentTick - tick) % 2));
+            while (calculateUnloadedChunks(client, client.player) > 0.05 && getPotentialJumpBlockingBlocks(-3).isEmpty()) {
+                fixedYaw = client.player.getYaw() + 180 * ((currentTick - tick) % 2);
                 fixedPitch = 0;
                 runOnMain(() -> {
                     client.player.setPitch(0);
@@ -788,8 +771,7 @@ public class ElytraTask {
      * @param z      目的地Z坐标
      */
     private static void RepairElytra(@NotNull MinecraftClient client, int x, int z) {
-        if (client.player == null || client.world == null || client.interactionManager == null ||
-            client.getNetworkHandler() == null)
+        if (client.player == null || client.world == null || client.interactionManager == null || client.getNetworkHandler() == null)
             throw new TaskException("null!");
         if (noElytra)
             return;
@@ -797,22 +779,19 @@ public class ElytraTask {
         if (ElytraStack.getItem() != Items.ELYTRA)
             throw new TaskException("未穿戴鞘翅!");
         if (ElytraStack.getDamage() > ElytraStack.getMaxDamage() - 40) {
-            if (Objects.equals(
-                    client.world.getBiome(client.player.getBlockPos()).getKey().map(RegistryKey::getValue).orElse(null),
-                    Identifier.of("minecraft", "nether_wastes"))) {
+            if (Objects.equals(client.world.getBiome(client.player.getBlockPos()).getKey().map(RegistryKey::getValue).orElse(null),
+                               Identifier.of("minecraft", "nether_wastes"))) {
                 msg.SendMsg(client.player, "准备修复鞘翅", MsgLevel.info);
                 status = TaskStatus.LANDING;
                 // 先中止baritone 飞行任务
-                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(
-                        client.player.getBlockPos()));
+                runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(client.player.getBlockPos()));
                 for (int i = 0; i < 600; i++) {
                     if (!BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().isActive())
                         break;
-                    if (Objects.equals(client.world.getBiome(client.player.getBlockPos()).getKey().map(
-                            RegistryKey::getValue).orElse(null), Identifier.of("minecraft", "nether_wastes")) &&
-                        client.player.isOnGround() && !BaritoneControlChecker.isControlPlayer()) {
-                        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute(
-                                "stop"));
+                    if (Objects.equals(client.world.getBiome(client.player.getBlockPos()).getKey().map(RegistryKey::getValue).orElse(null),
+                                       Identifier.of("minecraft", "nether_wastes")) && client.player.isOnGround() &&
+                        !BaritoneControlChecker.isControlPlayer()) {
+                        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
                         delay(5);
                         break;
                     }
@@ -861,12 +840,9 @@ public class ElytraTask {
                         if (BottleSlot == -1)
                             BottleSlot = i;
                         runOnMain(() -> {
-                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP,
-                                                                client.player);
-                            client.interactionManager.clickSlot(handler.syncId, FireworkSlot + 36, 0,
-                                                                SlotActionType.PICKUP, client.player);
-                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP,
-                                                                client.player);
+                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP, client.player);
+                            client.interactionManager.clickSlot(handler.syncId, FireworkSlot + 36, 0, SlotActionType.PICKUP, client.player);
+                            client.interactionManager.clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP, client.player);
                         });
                     }
                 }
@@ -931,12 +907,9 @@ public class ElytraTask {
                 ScreenHandler handler2 = handled2.getScreenHandler();
                 int finalBottleSlot = BottleSlot;
                 runOnMain(() -> {
-                    client.interactionManager.clickSlot(handler2.syncId, finalBottleSlot, 0, SlotActionType.PICKUP,
-                                                        client.player);
-                    client.interactionManager.clickSlot(handler2.syncId, FireworkSlot + 36, 0, SlotActionType.PICKUP,
-                                                        client.player);
-                    client.interactionManager.clickSlot(handler2.syncId, finalBottleSlot, 0, SlotActionType.PICKUP,
-                                                        client.player);
+                    client.interactionManager.clickSlot(handler2.syncId, finalBottleSlot, 0, SlotActionType.PICKUP, client.player);
+                    client.interactionManager.clickSlot(handler2.syncId, FireworkSlot + 36, 0, SlotActionType.PICKUP, client.player);
+                    client.interactionManager.clickSlot(handler2.syncId, finalBottleSlot, 0, SlotActionType.PICKUP, client.player);
                     handled2.close();
                 });
                 BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(new BlockPos(x, 0, z));
@@ -990,10 +963,9 @@ public class ElytraTask {
                 MessageIndicator var2 = BaritoneAPI.getSettings().useMessageTag.value ? Helper.MESSAGE_TAG : null;
                 MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(var1x, null, var2);
                 // 检测是否提示分段错误
-                if (MinecraftClient.getInstance().player != null &&
-                    (var1x.getString().contains("Failed to compute path to destination") ||
-                     var1x.getString().contains("Failed to recompute segment") ||
-                     var1x.getString().contains("Failed to compute next segment"))) {
+                if (MinecraftClient.getInstance().player != null && (var1x.getString().contains("Failed to compute path to destination") ||
+                                                                     var1x.getString().contains("Failed to recompute segment") ||
+                                                                     var1x.getString().contains("Failed to compute next segment"))) {
                     SegFailedCounter.accumulate();
                     waitReset = true;
                 }
@@ -1011,15 +983,13 @@ public class ElytraTask {
         BlockPos segPos = oldPos;
         client.player.setPitch(-30);
         // 调用baritoneAPI,准备开始寻路
-        runOnMain(
-                () -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(new BlockPos(x, 0, z)));
+        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(new BlockPos(x, 0, z)));
         delay(15);
 
         // 跳起
         elytraTakeoff(client);
 
-        if (client.player == null || client.getNetworkHandler() == null || client.interactionManager == null ||
-            client.world == null)
+        if (client.player == null || client.getNetworkHandler() == null || client.interactionManager == null || client.world == null)
             throw new TaskException("飞行任务失败！null异常！");
         // 鞘翅守护任务
         while (true) {
@@ -1045,16 +1015,15 @@ public class ElytraTask {
                     RepairElytra(client, x, z);
                 if (type == ELYTRA && currentTick % 5 == 0)
                     ElytraChecker(client);
-                if (!arrived && ((noFirework || noElytra) && Objects.equals(
-                        client.world.getBiome(client.player.getBlockPos()).getKey().map(RegistryKey::getValue).orElse(
-                                null), Identifier.of("minecraft", "nether_wastes")) && !client.player.isOnFire()) ||
+                if (!arrived && (noFirework || noElytra) &&
+                    Objects.equals(client.world.getBiome(client.player.getBlockPos()).getKey().map(RegistryKey::getValue).orElse(null),
+                                   Identifier.of("minecraft", "nether_wastes")) && !client.player.isOnFire() ||
                     client.player.getBlockPos().isWithinDistance(new BlockPos(x, 0, z), 300)) {
                     TaskManager.runTask(() -> {
                         delay(15);
                         runOnMain(() -> {
                             if (client.player != null)
-                                BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(
-                                        client.player.getBlockPos());
+                                BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().pathTo(client.player.getBlockPos());
                         });
                     });
                     msg.SendMsg(client.player, "到达降落地点，提前降落！", MsgLevel.tip);
