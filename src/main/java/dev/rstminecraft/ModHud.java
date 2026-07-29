@@ -8,7 +8,7 @@ import static dev.rstminecraft.RustElytraClient.*;
 public class ModHud {
     public static void DrawHud(DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!enableHud || ModTask.status == ModTask.TaskStatus.NO_TASK || client.player == null)
+        if (!enableHud.get() || ModTask.status == ModTask.TaskStatus.NO_TASK || client.player == null)
             return;
         StringBuilder sb = new StringBuilder();
         sb.append("当前状态:");
@@ -39,7 +39,8 @@ public class ModHud {
         sb.append(String.format("预计剩余时间:%02d:%02d:%02d", hour, minute, second));
         String[] strings = sb.toString().split("\n");
         for (int i = 0; i < strings.length; i++) {
-            context.drawText(MinecraftClient.getInstance().textRenderer, strings[i], HudX, HudY + 10 * i, 0xFFFFFFFF,
+            context.drawText(MinecraftClient.getInstance().textRenderer, strings[i], HudX.get(), HudY.get() + 10 * i,
+                             0xFFFFFFFF,
                              false);
         }
     }

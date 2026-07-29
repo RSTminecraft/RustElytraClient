@@ -174,7 +174,7 @@ public class ElytraTask {
                     c += stack.getCount();
                     int finalI = i;
                     runOnMain(() -> client.interactionManager.clickSlot(handler.syncId, finalI, 0,
-                                                                            SlotActionType.QUICK_MOVE, client.player));
+                                                                        SlotActionType.QUICK_MOVE, client.player));
                 }
             }
             runOnMain(handled::close);
@@ -243,8 +243,7 @@ public class ElytraTask {
                             delay(1);
                         }
                     } else
-                        runOnMain(
-                                () -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().resetState());
+                        runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().resetState());
                 }
             }
             LastPos = client.player.getBlockPos();
@@ -975,13 +974,9 @@ public class ElytraTask {
      * @param x      目的地X坐标
      * @param z      目的地Z坐标
      * @return 是否到达目的地
-     * @throws TaskException 任务异常
-     * @throws TaskCanceled  任务中止
      */
-    static boolean elytraTask(@NotNull MinecraftClient client, int x, int z,
-                              TaskType type) throws TaskException, TaskCanceled {
-        boolean verboseDisplayDebug = config.getBoolean("verboseDisplayDebug", false);
-        Food = FoodList[config.getInt("FoodIndex", 0)];
+    static boolean elytraTask(@NotNull MinecraftClient client, int x, int z, TaskType type) {
+        Food = FoodList[FoodIndex.get()];
         // 重置各个状态
         timerMultiplier = 1;
         resetStatus();
@@ -1035,8 +1030,7 @@ public class ElytraTask {
                 // 此时，到达阶段目的地，准备获取补给
                 arrivedTarget(client, segPos);
 
-                runOnMain(
-                        () -> BaritoneAPI.getSettings().logger.value = BaritoneAPI.getSettings().logger.defaultValue);
+                runOnMain(() -> BaritoneAPI.getSettings().logger.value = BaritoneAPI.getSettings().logger.defaultValue);
                 return client.player.getBlockPos().isWithinDistance(new BlockPos(x, 0, z), 3501);
             } else {
                 AutoEscapeLava(client);
@@ -1044,7 +1038,7 @@ public class ElytraTask {
                 baritoneChecker(client, x, z);
                 AutoEating(client);
                 if (currentTick % 10 == 0)
-                    WaitForLoadChunks(client, verboseDisplayDebug);
+                    WaitForLoadChunks(client, verboseDisplayDebug.get());
                 if (currentTick % 5 == 0)
                     FireworkChecker(client, segPos);
                 if (type == EXP_BOTTLE && currentTick % 5 == 0)

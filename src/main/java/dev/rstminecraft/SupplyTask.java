@@ -256,7 +256,7 @@ public class SupplyTask {
             if (FoodCount <= 15)
                 throw new TaskException("物资不足：需要至少16个" + Food.getName().getString() + "!");
 
-            if (config.getBoolean("inspectArmor", true) && (goldenArmor != 1 || diamondArmor != 2))
+            if (inspectArmor.get() && (goldenArmor != 1 || diamondArmor != 2))
                 throw new TaskException("物资不足：需要穿戴有 保护4 推荐含有经验修补和耐久3 的一件金质盔甲和2件合金或钻石盔甲！");
 
             mergeItemInInv(client, (s2) -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler2, 9, 36);
@@ -859,11 +859,11 @@ public class SupplyTask {
      * @param type   补给类型
      * @throws TaskException 通过抛出异常中断
      */
-    static void supplyTask(@NotNull MinecraftClient client, TaskType type) throws TaskException, TaskCanceled {
+    static void supplyTask(@NotNull MinecraftClient client, TaskType type) {
         if (client.player == null) throw new TaskException("Player为null");
 
         status = TaskStatus.SUPPLY;
-        Food = FoodList[config.getInt("FoodIndex", 0)];
+        Food = FoodList[FoodIndex.get()];
 
         timerMultiplier = 1;
         // 首先走到方块中央
