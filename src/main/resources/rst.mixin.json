@@ -6,7 +6,9 @@
     "BaritoneCheckMixin",
     "BaritoneUpdateTarget",
     "EntityEyeHeightMixin",
-    "PausedTestMixin"
+    "PausedTestMixin",
+    "takeoffCheckerMixin.baritoneLOL",
+    "takeoffCheckerMixin.SolverContextMixin"
   ],
   "plugin": "dev.rstminecraft.mixin.RstMixinPlugin",
   "injectors": {
