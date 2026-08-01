@@ -4,13 +4,9 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "BaritoneCheckMixin",
-    "BaritoneUpdateTarget",
     "EntityEyeHeightMixin",
-    "PausedTestMixin",
-    "takeoffCheckerMixin.baritoneLOL",
-    "takeoffCheckerMixin.SolverContextMixin"
+    "takeoffCheckerMixin.baritoneLOL"
   ],
-  "plugin": "dev.rstminecraft.mixin.RstMixinPlugin",
   "injectors": {
     "defaultRequire": 1
   },

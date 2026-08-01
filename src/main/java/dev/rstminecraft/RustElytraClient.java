@@ -68,6 +68,7 @@ public class RustElytraClient implements ClientModInitializer {
     public static @NotNull BoolConfigEntry inspectArmor = config.new BoolConfigEntry("inspectArmor", true);
     public static @NotNull BoolConfigEntry verboseDisplayDebug = config.new BoolConfigEntry("verboseDisplayDebug", false);
     public static @NotNull BoolConfigEntry enableHud = config.new BoolConfigEntry("enableHud", true);
+    public static @NotNull BoolConfigEntry elytraPredictTerrain = config.new BoolConfigEntry("elytraPredictTerrain",true);
     // endregion
 
     // 信息发送器

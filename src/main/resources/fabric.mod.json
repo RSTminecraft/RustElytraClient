@@ -32,5 +32,6 @@
     "another-mod": "*",
     "baritone-meteor": "*",
     "baritone": "*"
-  }
+  },
+  "accessWidener": "rust-elytra-client.accesswidener"
 }

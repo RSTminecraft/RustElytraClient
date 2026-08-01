@@ -54,16 +54,6 @@ public class NoBaritone extends Screen {
                 context.drawCenteredTextWithShadow(this.textRenderer, "此版本不包含可供模组调用的API,请使用API版、unoptimized版或彗星版", this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
                 context.drawCenteredTextWithShadow(this.textRenderer, "若您不确定应该用哪个版本，请使用QQ群文件中的推荐版", this.width / 2, this.height / 2 - 10, 0xFFAAAAAA);
             }
-            case LookMixinFailed -> {
-                context.drawCenteredTextWithShadow(this.textRenderer, "LookBehaviorMixin注入失败了", this.width / 2, this.height / 2 - 50, 0xFFFFFFFF);
-                context.drawCenteredTextWithShadow(this.textRenderer, "这通常是因为作者还没有适配新版本baritone", this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
-                context.drawCenteredTextWithShadow(this.textRenderer, "请在QQ群内反馈", this.width / 2, this.height / 2 - 10, 0xFFAAAAAA);
-            }
-            case PausedMixinFailed -> {
-                context.drawCenteredTextWithShadow(this.textRenderer, "PausedMixin注入失败了", this.width / 2, this.height / 2 - 50, 0xFFFFFFFF);
-                context.drawCenteredTextWithShadow(this.textRenderer, "这通常是因为作者还没有适配新版本baritone", this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
-                context.drawCenteredTextWithShadow(this.textRenderer, "请在QQ群内反馈", this.width / 2, this.height / 2 - 10, 0xFFAAAAAA);
-            }
         }
 
 
@@ -75,6 +65,6 @@ public class NoBaritone extends Screen {
     }
 
     public enum NoBaritoneReason {
-        NoModId, NoAPI, LookMixinFailed,PausedMixinFailed
+        NoModId, NoAPI
     }
 }

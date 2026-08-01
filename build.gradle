@@ -1,19 +1,10 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-    }
-
-}
-
+// Rust Elytra Client
 
 plugins {
     id 'fabric-loom' version '1.17-SNAPSHOT'
     id 'maven-publish'
     id 'java'
 }
-
 
 version = project.mod_version
 group = project.maven_group
@@ -25,7 +16,20 @@ base {
 
 repositories {
     mavenLocal()
+    maven {
+        name = "meteor-maven"
+        url = uri("https://maven.meteordev.org/releases")
+    }
+    maven {
+        name = "meteor-maven-snapshots"
+        url = uri("https://maven.meteordev.org/snapshots")
+    }
 
+    // Nether path finder来源
+    maven {
+        name = 'babbaj-repo'
+        url = 'https://babbaj.github.io/maven/'
+    }
 }
 
 fabricApi {
@@ -36,26 +40,24 @@ fabricApi {
 
 
 dependencies {
-    // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    // Fabric API. This is technically optional, but you probably want it anyway.
+    // 暂时使用yarn mappings,以后迁移到官方映射?
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // mod自定义改版 baritone
-    modImplementation "rustelytraclient:baritone:1.21.11-SNAPSHOT"
+    modCompileOnly "meteordevelopment:baritone:1.21.11-SNAPSHOT"
 
     modImplementation "dev.rstminecraft:RustClientCore:1.1-SNAPSHOT",{changing=true }
     include "dev.rstminecraft:RustClientCore:1.1-SNAPSHOT"
+
+    implementation "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
+    include "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
 }
 
 
-
-tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs << "-Xlint:none"
-}
 
 processResources {
     inputs.property "version", project.version
@@ -65,14 +67,12 @@ processResources {
     }
 }
 
+// Java21
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 21
 }
 
 java {
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
     withSourcesJar()
 
     sourceCompatibility = JavaVersion.VERSION_21
@@ -85,8 +85,8 @@ tasks.named("remapJar") {
     def modVersion = project.property("mod_version")
     def buildTime = new Date().format("yyMMdd_HHmm")
 
-    archiveBaseName.set("${mcVersion}/${baseName}-${mcVersion}")   // ⚠️ 不要用 /
-    archiveVersion.set("${modVersion}-${buildTime}")
+    archiveBaseName = "${mcVersion}/${baseName}-${mcVersion}"
+    archiveVersion = ("${modVersion}-${buildTime}")
 }
 
 tasks.named("remapSourcesJar") {
@@ -95,11 +95,10 @@ tasks.named("remapSourcesJar") {
     def modVersion = project.property("mod_version")
     def buildTime = new Date().format("yyMMdd_HHmm")
 
-    archiveBaseName.set("${mcVersion}/${baseName}-${mcVersion}")   // ⚠️ 不要用 /
-    archiveVersion.set("${modVersion}-${buildTime}")
+    archiveBaseName = "${mcVersion}/${baseName}-${mcVersion}"
+    archiveVersion = ("${modVersion}-${buildTime}")
 }
 
-// configure the maven publication
 publishing {
     publications {
         create("mavenJava", MavenPublication) {
@@ -110,13 +109,10 @@ publishing {
 
     // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
     repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.'
-//		mavenCentral()
+        // 暂无上传所需仓库
     }
 }
 
-
-
+loom{
+    accessWidenerPath = file("src/main/resources/rust-elytra-client.accesswidener")
+}
