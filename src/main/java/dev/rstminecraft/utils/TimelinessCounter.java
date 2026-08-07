@@ -3,12 +3,13 @@ package dev.rstminecraft.utils;
 import dev.rstminecraft.RustElytraClient;
 
 public class TimelinessCounter {
-    private int count = 0;
     private final int updateInterval;
-    private int LastUpdateTick = Integer.MIN_VALUE;
+    public int LastUpdateTick;
+    private int count = 0;
 
     public TimelinessCounter(int updateInterval) {
         this.updateInterval = updateInterval;
+        LastUpdateTick = -updateInterval - 1;
     }
 
     public void accumulate() {
@@ -21,10 +22,10 @@ public class TimelinessCounter {
     }
 
     public int getCount() {
-        return (RustElytraClient.currentTick - LastUpdateTick > updateInterval) ? 0 : count;
+        return RustElytraClient.currentTick - LastUpdateTick > updateInterval ? 0 : count;
     }
 
-    public void clear(){
+    public void clear() {
         count = 0;
         LastUpdateTick = RustElytraClient.currentTick;
     }

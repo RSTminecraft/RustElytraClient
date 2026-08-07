@@ -96,8 +96,7 @@ public class ModTask {
             if (client.isOnThread())
                 BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
             else
-                TaskManager.runOnMain(
-                        () -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
+                TaskManager.runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
         }
     }
 
@@ -130,7 +129,7 @@ public class ModTask {
 
         resetMixin();
         resetClient(client);
-        Thread modMainTask = TaskManager.runTask(() -> runTask(client), "Rust Elytra主任务");
+        Thread modMainTask = TaskManager.runTask(() -> runTask(client), "Rust Elytra主任务", true, false);
 
 
         ModStatus = ModStatuses.running;
@@ -150,7 +149,7 @@ public class ModTask {
                 }
                 TaskManager.delay(1);
             }
-        }, "Rust Elytra暂停守护任务");
+        }, "Rust Elytra暂停守护任务", true, false);
     }
 
     private static void runTask(@NotNull MinecraftClient client) {
@@ -168,8 +167,7 @@ public class ModTask {
             msg.SendMsg(client.player, "第" + nowSeg + "段补给任务开始！", MsgLevel.info);
 
             // 开启补给保护任务
-            Thread SupplyProtectThread = TaskManager.runTask(() -> SupplyTaskProtector(client, finalNowSeg),
-                                                             "Rust Elytra 补给保护任务");
+            Thread SupplyProtectThread = TaskManager.runTask(() -> SupplyTaskProtector(client, finalNowSeg), "Rust Elytra 补给保护任务", true, false);
 
             // 开启补给任务
             try {
@@ -193,8 +191,7 @@ public class ModTask {
             msg.SendMsg(client.player, "第" + nowSeg + "段飞行任务开始！", MsgLevel.info);
 
             // 开启鞘翅保护任务
-            Thread ElytraProtectThread = TaskManager.runTask(() -> ElytraTaskProtector(client, finalNowSeg),
-                                                             "Rust Elytra 鞘翅保护任务");
+            Thread ElytraProtectThread = TaskManager.runTask(() -> ElytraTaskProtector(client, finalNowSeg), "Rust Elytra 鞘翅保护任务", true, false);
             // 开启鞘翅任务
             try {
                 if (elytraTask(client, TargetX, TargetZ, type)) {
@@ -284,8 +281,7 @@ public class ModTask {
             if (client.isOnThread())
                 BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
             else
-                TaskManager.runOnMain(
-                        () -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
+                TaskManager.runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
         }
         if (seg == -1 && isAutoLogOnSeg1 || seg != -1 && isAutoLog) {
             MutableText text = Text.literal("[RSTAutoLog] ");

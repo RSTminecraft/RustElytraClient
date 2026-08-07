@@ -50,8 +50,8 @@ dependencies {
 
     modCompileOnly "meteordevelopment:baritone:1.21.11-SNAPSHOT"
 
-    modImplementation "dev.rstminecraft:RustClientCore:1.1-SNAPSHOT",{changing=true }
-    include "dev.rstminecraft:RustClientCore:1.1-SNAPSHOT"
+    modImplementation "dev.rstminecraft:RustClientCore:1.2-SNAPSHOT",{changing=true }
+    include "dev.rstminecraft:RustClientCore:1.2-SNAPSHOT"
 
     implementation "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
     include "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"

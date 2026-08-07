@@ -29,31 +29,34 @@ import java.util.List;
  */
 public final class NetherPath extends AbstractList<BetterBlockPos> {
 
-    private static final NetherPath EMPTY_PATH = new NetherPath(Collections.emptyList());
+    private static final NetherPath EMPTY_PATH = new NetherPath(Collections.emptyList(),false);
 
     private final List<BetterBlockPos> backing;
 
-    NetherPath(List<BetterBlockPos> backing) {
+    public final boolean complete;
+
+    NetherPath(List<BetterBlockPos> backing, boolean complete) {
         this.backing = backing;
+        this.complete = complete;
     }
 
     @Override
     public BetterBlockPos get(int index) {
-        return this.backing.get(index);
+        return backing.get(index);
     }
 
     @Override
     public int size() {
-        return this.backing.size();
+        return backing.size();
     }
 
     public BetterBlockPos getLast() {
-        return this.isEmpty() ? null : this.backing.getLast();
+        return isEmpty() ? null : backing.getLast();
     }
 
     public Vec3d getVec(int index) {
-        final BetterBlockPos pos = this.get(index);
-        return new Vec3d(pos.x, pos.y, pos.z);
+        final BetterBlockPos pos = get(index);
+        return pos.toCenterPos();
     }
 
     public static NetherPath emptyPath() {

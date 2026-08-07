@@ -1,5 +1,6 @@
 package dev.rstminecraft.elytra;
 
+import baritone.api.event.events.BlockChangeEvent;
 import dev.babbaj.pathfinder.NetherPathfinder;
 import dev.babbaj.pathfinder.Octree;
 import dev.babbaj.pathfinder.PathSegment;
@@ -19,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
 import static dev.rstminecraft.RustElytraClient.elytraPredictTerrain;
 
 /**
@@ -82,11 +84,15 @@ public final class NetherPathfinderContext {
         }
     }
 
+    public static boolean isSupported() {
+        return NetherPathfinder.isThisSystemSupported();
+    }
+
     public boolean hasChunk(ChunkPos pos) {
         return NetherPathfinder.hasChunkFromJava(this.context, pos.x, pos.z);
     }
 
-    public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateOctreeInterface boi) {
+    public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateUtils boi) {
         this.executor.execute(() -> {
             synchronized (this.cullingLock) {
                 boi.chunkPtr = 0L;
@@ -113,10 +119,12 @@ public final class NetherPathfinderContext {
         this.executor.execute(() -> {
             ChunkPos chunkPos = event.getChunkPos();
             long ptr = NetherPathfinder.getChunkPointer(this.context, chunkPos.x, chunkPos.z);
-            if (ptr == 0) return; // this shouldn't ever happen
+            if (ptr == 0)
+                return; // this shouldn't ever happen
             event.getBlocks().forEach(pair -> {
                 BlockPos pos = pair.first();
-                if (pos.getY() >= 128) return;
+                if (pos.getY() >= 128)
+                    return;
                 boolean isSolid = pair.second() != AIR_BLOCK_STATE;
                 Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
             });
@@ -125,22 +133,14 @@ public final class NetherPathfinderContext {
 
     public CompletableFuture<PathSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
         return CompletableFuture.supplyAsync(() -> {
-            final PathSegment segment = NetherPathfinder.pathFind(
-                    this.context,
-                    src.getX(), src.getY(), src.getZ(),
-                    dst.getX(), dst.getY(), dst.getZ(),
-                    true,
-                    false,
-                    10000,
-                    !elytraPredictTerrain.get()
-            );
+            final PathSegment segment = NetherPathfinder.pathFind(this.context, src.getX(), src.getY(), src.getZ(), dst.getX(), dst.getY(),
+                                                                  dst.getZ(), true, false, 10000, !elytraPredictTerrain.get());
             if (segment == null) {
                 throw new PathCalculationException("Path calculation failed");
             }
             return segment;
         }, this.executor);
     }
-
 
     /**
      * Performs a raytrace from the given start position to the given end position, returning {@code true} if there is
@@ -154,8 +154,7 @@ public final class NetherPathfinderContext {
      * @param endZ   The end Z coordinate
      * @return {@code true} if there is visibility between the points
      */
-    public boolean raytrace(final double startX, final double startY, final double startZ,
-                            final double endX, final double endY, final double endZ) {
+    private boolean raytrace(final double startX, final double startY, final double startZ, final double endX, final double endY, final double endZ) {
         return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, startX, startY, startZ, endX, endY, endZ);
     }
 
@@ -168,6 +167,8 @@ public final class NetherPathfinderContext {
      * @return {@code true} if there is visibility between the points
      */
     public boolean raytrace(final Vec3d start, final Vec3d end) {
+        if (start.equals(end))
+            return true;
         return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, start.x, start.y, start.z, end.x, end.y, end.z);
     }
 
@@ -194,7 +195,8 @@ public final class NetherPathfinderContext {
         this.executor.shutdownNow();
 
         try {
-            while (!this.executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            while (!this.executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -212,10 +214,7 @@ public final class NetherPathfinderContext {
         public static final int NONE = 1;
         public static final int ANY = 2;
 
-        private Visibility() {}
-    }
-
-    public static boolean isSupported() {
-        return NetherPathfinder.isThisSystemSupported();
+        private Visibility() {
+        }
     }
 }

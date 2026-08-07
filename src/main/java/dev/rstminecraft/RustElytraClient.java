@@ -4,39 +4,56 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组主文件。
 
+import baritone.api.BaritoneAPI;
+import baritone.api.utils.BetterBlockPos;
 import dev.rstminecraft.RustClientCore.Messenger;
 import dev.rstminecraft.RustClientCore.ModConfig;
 import dev.rstminecraft.RustClientCore.ModConfig.BoolConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.IntConfigEntry;
+import dev.rstminecraft.RustClientCore.ModConfig.LongConfigEntry;
 import dev.rstminecraft.RustClientCore.MsgLevel;
+import dev.rstminecraft.RustClientCore.TaskManager;
+import dev.rstminecraft.elytra.BlockStateUtils;
+import dev.rstminecraft.elytra.ElytraTask;
+import dev.rstminecraft.elytra.NetherPathfinderContext;
+import dev.rstminecraft.elytra.PathManager;
 import dev.rstminecraft.utils.BaritoneControlChecker;
 import dev.rstminecraft.utils.TrajectoryRenderer;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static dev.rstminecraft.ModHud.DrawHud;
+import static dev.rstminecraft.utils.TrajectoryRenderer.drawTrajectory;
+import static dev.rstminecraft.utils.TrajectoryRenderer.markPos;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 
 public class RustElytraClient implements ClientModInitializer {
     public static final Logger MODLOGGER = LoggerFactory.getLogger("rust-elytra-client");
     public static final Item[] FoodList = {Items.GOLDEN_CARROT, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_CHICKEN};
-    public static int currentTick = 0;
+    public volatile static int currentTick = 0;
 
     // region 飞行mixin控制变量
     public static boolean fixEyeHeight = false;
@@ -68,7 +85,9 @@ public class RustElytraClient implements ClientModInitializer {
     public static @NotNull BoolConfigEntry inspectArmor = config.new BoolConfigEntry("inspectArmor", true);
     public static @NotNull BoolConfigEntry verboseDisplayDebug = config.new BoolConfigEntry("verboseDisplayDebug", false);
     public static @NotNull BoolConfigEntry enableHud = config.new BoolConfigEntry("enableHud", true);
-    public static @NotNull BoolConfigEntry elytraPredictTerrain = config.new BoolConfigEntry("elytraPredictTerrain",true);
+    public static @NotNull BoolConfigEntry elytraPredictTerrain = config.new BoolConfigEntry("elytraPredictTerrain", true);
+    public static @NotNull LongConfigEntry netherSeed = config.new LongConfigEntry("netherSeed", -7346913998703726680L /* 3c3u种子作为默认 */);
+    public static @NotNull IntConfigEntry elytraFireworkSpeed = config.new IntConfigEntry("elytraFireworkSpeed",1);
     // endregion
 
     // 信息发送器
@@ -131,6 +150,12 @@ public class RustElytraClient implements ClientModInitializer {
                 ModStatus = ModStatuses.canceled;
             }
         });
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("rtest").executes(context -> {
+            ElytraTask et = new ElytraTask(new BlockPos(3750000,64,0));
+            TaskManager.runTask(et::run, "et", false, false);
+            return 1;
+        })));
     }
 
     public enum ModStatuses {
