@@ -4,19 +4,14 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组主文件。
 
-import baritone.api.BaritoneAPI;
-import baritone.api.utils.BetterBlockPos;
-import dev.rstminecraft.RustClientCore.Messenger;
+import dev.rstminecraft.RustClientCore.messenger.Messenger;
 import dev.rstminecraft.RustClientCore.ModConfig;
 import dev.rstminecraft.RustClientCore.ModConfig.BoolConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.IntConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.LongConfigEntry;
-import dev.rstminecraft.RustClientCore.MsgLevel;
-import dev.rstminecraft.RustClientCore.TaskManager;
-import dev.rstminecraft.elytra.BlockStateUtils;
+import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
+import dev.rstminecraft.RustClientCore.task.TaskManager;
 import dev.rstminecraft.elytra.ElytraTask;
-import dev.rstminecraft.elytra.NetherPathfinderContext;
-import dev.rstminecraft.elytra.PathManager;
 import dev.rstminecraft.utils.BaritoneControlChecker;
 import dev.rstminecraft.utils.TrajectoryRenderer;
 import net.fabricmc.api.ClientModInitializer;
@@ -27,7 +22,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
@@ -35,19 +29,14 @@ import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 import static dev.rstminecraft.ModHud.DrawHud;
-import static dev.rstminecraft.utils.TrajectoryRenderer.drawTrajectory;
-import static dev.rstminecraft.utils.TrajectoryRenderer.markPos;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 
 public class RustElytraClient implements ClientModInitializer {
@@ -62,11 +51,6 @@ public class RustElytraClient implements ClientModInitializer {
     public static float timerMultiplier = 1f;
     // endregion
 
-    // region 其他mixin信息
-    public static boolean isLookMixinSuccess = false;
-    public static boolean isPausedMixinSuccess = false;
-    public static boolean[] paused;
-    // endregion
 
     public static KeyBinding openCustomScreenKey;
     public static KeyBinding elytraDebugKey;

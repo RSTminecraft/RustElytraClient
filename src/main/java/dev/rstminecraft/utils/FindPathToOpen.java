@@ -94,7 +94,7 @@ public class FindPathToOpen {
         List<Vec3d> list = new ArrayList<>(512);
         double phi = Math.PI * (3 - Math.sqrt(5));  // 黄金角
         for (int i = 0; i < 512; i++) {
-            double y = 1 - (i / (double)(512 - 1))* yr;  // y 从 1 到 -1
+            double y = 1 - i / (double)(512 - 1) * yr;  // y 从 1 到 -1
             double radius = Math.sqrt(1 - y * y);
             double theta = phi * i;
 
@@ -243,7 +243,7 @@ public class FindPathToOpen {
         }
 
         // 如果细化未找到更好的，返回原始最佳候选
-        return (best != null) ? best : topCandidates.getFirst();
+        return best != null ? best : topCandidates.getFirst();
     }
 
     /**

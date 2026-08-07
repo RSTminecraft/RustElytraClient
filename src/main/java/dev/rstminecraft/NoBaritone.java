@@ -21,22 +21,22 @@ public class NoBaritone extends Screen {
     protected void init() {
         if (mustQuit)
             // 添加一个“退出游戏”按钮
-            this.addDrawableChild(ButtonWidget.builder(Text.literal("退出游戏"), button -> {
-                if (this.client != null) {
-                    this.client.scheduleStop();
+            addDrawableChild(ButtonWidget.builder(Text.literal("退出游戏"), button -> {
+                if (client != null) {
+                    client.scheduleStop();
                 }
-            }).dimensions(this.width / 2 - 100, this.height / 2 + 20, 200, 20).build());
+            }).dimensions(width / 2 - 100, height / 2 + 20, 200, 20).build());
         else {
-            this.addDrawableChild(ButtonWidget.builder(Text.literal("退出游戏"), button -> {
-                if (this.client != null) {
-                    this.client.scheduleStop();
+            addDrawableChild(ButtonWidget.builder(Text.literal("退出游戏"), button -> {
+                if (client != null) {
+                    client.scheduleStop();
                 }
-            }).dimensions(this.width / 3 - 60, this.height / 2 + 20, 120, 20).build());
-            this.addDrawableChild(ButtonWidget.builder(Text.literal("退出游戏"), button -> {
-                if (this.client != null) {
-                    this.client.scheduleStop();
+            }).dimensions(width / 3 - 60, height / 2 + 20, 120, 20).build());
+            addDrawableChild(ButtonWidget.builder(Text.literal("退出游戏"), button -> {
+                if (client != null) {
+                    client.scheduleStop();
                 }
-            }).dimensions(this.width / 3 * 2 - 60, this.height / 2 + 20, 120, 20).build());
+            }).dimensions(width / 3 * 2 - 60, height / 2 + 20, 120, 20).build());
         }
     }
 
@@ -45,14 +45,14 @@ public class NoBaritone extends Screen {
         super.render(context, mouseX, mouseY, delta);
         switch (reason) {
             case NoModId -> {
-                context.drawCenteredTextWithShadow(this.textRenderer, "Rust Elytra Client 未检测到 Baritone 模组！", this.width / 2, this.height / 2 - 50, 0xFFFFFFFF);
-                context.drawCenteredTextWithShadow(this.textRenderer, "请安装原生 Baritone 或 Meteor 版以运行模组！", this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
-                context.drawCenteredTextWithShadow(this.textRenderer, "手机版用户可使用BaritonePE。（详见QQ群）", this.width / 2, this.height / 2 - 10, 0xFFAAAAAA);
+                context.drawCenteredTextWithShadow(textRenderer, "Rust Elytra Client 未检测到 Baritone 模组！", width / 2, height / 2 - 50, 0xFFFFFFFF);
+                context.drawCenteredTextWithShadow(textRenderer, "请安装原生 Baritone 或 Meteor 版以运行模组！", width / 2, height / 2 - 30, 0xFFAAAAAA);
+                context.drawCenteredTextWithShadow(textRenderer, "手机版用户可使用BaritonePE。（详见QQ群）", width / 2, height / 2 - 10, 0xFFAAAAAA);
             }
             case NoAPI -> {
-                context.drawCenteredTextWithShadow(this.textRenderer, "您似乎使用了错误的Baritone(Standalone版本)", this.width / 2, this.height / 2 - 50, 0xFFFFFFFF);
-                context.drawCenteredTextWithShadow(this.textRenderer, "此版本不包含可供模组调用的API,请使用API版、unoptimized版或彗星版", this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
-                context.drawCenteredTextWithShadow(this.textRenderer, "若您不确定应该用哪个版本，请使用QQ群文件中的推荐版", this.width / 2, this.height / 2 - 10, 0xFFAAAAAA);
+                context.drawCenteredTextWithShadow(textRenderer, "您似乎使用了错误的Baritone(Standalone版本)", width / 2, height / 2 - 50, 0xFFFFFFFF);
+                context.drawCenteredTextWithShadow(textRenderer, "此版本不包含可供模组调用的API,请使用API版、unoptimized版或彗星版", width / 2, height / 2 - 30, 0xFFAAAAAA);
+                context.drawCenteredTextWithShadow(textRenderer, "若您不确定应该用哪个版本，请使用QQ群文件中的推荐版", width / 2, height / 2 - 10, 0xFFAAAAAA);
             }
         }
 

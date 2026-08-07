@@ -1,6 +1,6 @@
 package dev.rstminecraft;
 
-import net.minecraft.client.MinecraftClient;
+import dev.rstminecraft.RustClientCore.MinecraftContext;
 import net.minecraft.client.gui.DrawContext;
 import org.jetbrains.annotations.NotNull;
 
@@ -8,8 +8,7 @@ import static dev.rstminecraft.RustElytraClient.*;
 
 public class ModHud {
     public static void DrawHud(@NotNull DrawContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (!enableHud.get() || ModTask.status == ModTask.TaskStatus.NO_TASK || client.player == null)
+        if (!enableHud.get() || ModTask.status == ModTask.TaskStatus.NO_TASK)
             return;
         StringBuilder sb = new StringBuilder();
         sb.append("当前状态:");
@@ -27,12 +26,12 @@ public class ModHud {
             case LANDING -> sb.append("正在降落");
         }
         sb.append('\n');
-        sb.append("已飞行距离:").append(String.format("%.2f", ModTask.TaskFlyDistance(client.player))).append('\n');
-        sb.append("剩余飞行距离:").append(String.format("%.2f", ModTask.TaskRemainDistance(client.player))).append(
+        sb.append("已飞行距离:").append(String.format("%.2f", ModTask.TaskFlyDistance(MinecraftContext.player()))).append('\n');
+        sb.append("剩余飞行距离:").append(String.format("%.2f", ModTask.TaskRemainDistance(MinecraftContext.player()))).append(
                 '\n');
-        sb.append("平均飞行速度:").append(String.format("%.2f", ModTask.TaskAverageSpeed(client.player))).append(
+        sb.append("平均飞行速度:").append(String.format("%.2f", ModTask.TaskAverageSpeed(MinecraftContext.player()))).append(
                 " " + "m/s\n");
-        int second = (int) ModTask.TaskRemainSecond(client.player); //这是随便输入的秒值
+        int second = (int) ModTask.TaskRemainSecond(MinecraftContext.player());
         int hour = second / 3600; // 得到分钟数
         second = second % 3600;//剩余的秒数
         int minute = second / 60;//得到分
@@ -40,7 +39,7 @@ public class ModHud {
         sb.append(String.format("预计剩余时间:%02d:%02d:%02d", hour, minute, second));
         String[] strings = sb.toString().split("\n");
         for (int i = 0; i < strings.length; i++) {
-            context.drawText(MinecraftClient.getInstance().textRenderer, strings[i], HudX.get(), HudY.get() + 10 * i,
+            context.drawText(MinecraftContext.client().textRenderer, strings[i], HudX.get(), HudY.get() + 10 * i,
                              0xFFFFFFFF,
                              false);
         }

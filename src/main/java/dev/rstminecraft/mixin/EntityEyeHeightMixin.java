@@ -14,7 +14,7 @@ import static dev.rstminecraft.RustElytraClient.*;
 public abstract class EntityEyeHeightMixin {
     @Inject(method = "getStandingEyeHeight", at = @At("HEAD"), cancellable = true)
     private void redirectEyeHeight(@NotNull CallbackInfoReturnable<Float> cir) {
-        if (((Object) this instanceof PlayerEntity) && fixEyeHeight){
+        if ((Object) this instanceof PlayerEntity && fixEyeHeight){
             // 0.6F 是鞘翅滑翔时的标准眼睛高度
             cir.setReturnValue(0.6f);
         }

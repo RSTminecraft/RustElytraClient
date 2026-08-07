@@ -6,9 +6,9 @@ import baritone.api.event.events.ChunkEvent;
 import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.utils.BetterBlockPos;
 import dev.babbaj.pathfinder.PathSegment;
-import dev.rstminecraft.RustClientCore.MsgLevel;
-import dev.rstminecraft.RustClientCore.TaskManager;
-import net.minecraft.client.MinecraftClient;
+import dev.rstminecraft.RustClientCore.MinecraftContext;
+import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
+import dev.rstminecraft.RustClientCore.task.TaskManager;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.ChunkManager;
@@ -25,33 +25,31 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static dev.rstminecraft.RustClientCore.TaskManager.delay;
+import static dev.rstminecraft.RustClientCore.task.TaskManager.delay;
 import static dev.rstminecraft.RustElytraClient.msg;
 
 public final class PathManager {
     private final @NotNull NetherPathfinderContext npf;
     private final @NotNull BlockStateUtils bsu;
-    private final @NotNull MinecraftClient client;
     private final @NotNull BetterBlockPos destination;
     @NotNull
     public NetherPath path;
     public volatile boolean doPathManagerTick = true;
     public int playerNear;
 
-    public PathManager(@NotNull MinecraftClient client, @NotNull BetterBlockPos destination, @NotNull NetherPathfinderContext npf,
-                       @NotNull BlockStateUtils bsu) {
+    public PathManager(@NotNull BetterBlockPos destination, @NotNull NetherPathfinderContext npf,
+            @NotNull BlockStateUtils bsu) {
         this.npf = npf;
         this.bsu = bsu;
-        this.client = client;
         this.destination = destination;
-        this.path = NetherPath.emptyPath();
-        this.playerNear = 0;
+        path = NetherPath.emptyPath();
+        playerNear = 0;
     }
 
     public void repackChunks() {
-        ChunkManager chunkProvider = client.world.getChunkManager();
+        ChunkManager chunkProvider = MinecraftContext.world().getChunkManager();
 
-        BetterBlockPos playerPos = new BetterBlockPos(client.player.getBlockPos());
+        BetterBlockPos playerPos = new BetterBlockPos(MinecraftContext.player().getBlockPos());
 
         int playerChunkX = playerPos.getX() >> 4;
         int playerChunkZ = playerPos.getZ() >> 4;
@@ -87,13 +85,13 @@ public final class PathManager {
                 if (npfRef.get() == null)
                     return;
                 if (event.isPostPopulate()) {
-                    final WorldChunk chunk = client.world.getChunk(event.getX(), event.getZ());
+                    final WorldChunk chunk = MinecraftContext.world().getChunk(event.getX(), event.getZ());
                     npf.queueForPacking(chunk);
                 }
             }
         });
-        client.execute(this::repackChunks);
-        CompletableFuture<PathSegment> pf = npf.pathFindAsync(client.player.getBlockPos(), destination);
+        MinecraftContext.client().execute(this::repackChunks);
+        CompletableFuture<PathSegment> pf = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), destination);
         while (!pf.isDone()) {
             delay(1);
         }
@@ -104,8 +102,8 @@ public final class PathManager {
 
         Thread cullingThread = TaskManager.runTask(() -> {
             while (true) {
-                client.execute(() -> msg.SendMsg(client.player, "culling!", MsgLevel.info));
-                npf.queueCacheCulling(client.player.getChunkPos().x, client.player.getChunkPos().z, 5000, bsu);
+                MinecraftContext.client().execute(() -> msg.SendMsg("culling!", MsgLevel.info));
+                npf.queueCacheCulling(MinecraftContext.player().getChunkPos().x, MinecraftContext.player().getChunkPos().z, 5000, bsu);
                 delay(3600);
             }
         }, "culling", true, false);
@@ -117,12 +115,12 @@ public final class PathManager {
                     continue;
 
 
-                synchronized (this.npf.cullingLock) {
+                synchronized (npf.cullingLock) {
                     updatePlayerNear();
                     pathFindAroundObstacles();
 
-                    int last = this.path.size() - 1;
-                    if (!path.complete && client.world.isPosLoaded(path.get(last)))
+                    int last = path.size() - 1;
+                    if (!path.complete && MinecraftContext.world().isPosLoaded(path.get(last)))
                         pathNextSegment(last);
                 }
 
@@ -136,12 +134,12 @@ public final class PathManager {
     }
 
     public void updatePlayerNear() {
-        if (this.path.isEmpty()) {
+        if (path.isEmpty()) {
             return;
         }
 
-        int index = this.playerNear;
-        final BetterBlockPos pos = new BetterBlockPos(client.player.getBlockPos());
+        int index = playerNear;
+        final BetterBlockPos pos = new BetterBlockPos(MinecraftContext.player().getBlockPos());
         for (int i = index; i >= Math.max(index - 1000, 0); i -= 10) {
             if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
                 index = i; // intentional: this changes the bound of the loop
@@ -162,23 +160,23 @@ public final class PathManager {
                 index = i; // intentional: this changes the bound of the loop
             }
         }
-        this.playerNear = index;
+        playerNear = index;
     }
 
     public void pathNextSegment(final int afterIncl) {
-        final List<BetterBlockPos> before = this.path.subList(0, afterIncl + 1);
-        final BetterBlockPos pathStart = this.path.get(afterIncl);
+        final List<BetterBlockPos> before = path.subList(0, afterIncl + 1);
+        final BetterBlockPos pathStart = path.get(afterIncl);
 
         try {
             PathSegment segment = npf.pathFindAsync(pathStart, destination).get();
             Stream<BetterBlockPos> unpacked = Stream.concat(before.stream(),
-                                                            Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong));
-            client.execute(() -> setPath(unpacked, segment.finished));
+                    Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong));
+            MinecraftContext.client().execute(() -> setPath(unpacked, segment.finished));
         } catch (InterruptedException e) {
             throw new Error("计算中被中断!");
         } catch (ExecutionException e) {
             if (e.getCause() instanceof PathCalculationException) {
-                msg.SendMsg(client.player, "计算路径出错!", MsgLevel.warning);
+                msg.SendMsg("计算路径出错!", MsgLevel.warning);
 
             }
 
@@ -203,14 +201,16 @@ public final class PathManager {
         boolean canSeeAny = false;
         for (int i = rangeStartIncl; i < rangeEndExcl - 1; i++) {
 
-            if (npf.raytrace(client.player.getEntityPos(), this.path.getVec(i)) || npf.raytrace(client.player.getEyePos(), this.path.getVec(i))) {
+            if (npf.raytrace(MinecraftContext.player().getEntityPos(), path.getVec(i)) ||
+                npf.raytrace(MinecraftContext.player().getEyePos(), path.getVec(i))) {
                 canSeeAny = true;
             }
-            if (!npf.raytrace(this.path.getVec(i), this.path.getVec(i + 1))) {
+            if (!npf.raytrace(path.getVec(i), path.getVec(i + 1))) {
                 // obstacle. where do we return to pathing?
                 // if the end of render distance is closer to goal, then that's fine, otherwise we'd be "digging our hole deeper" and making an already bad backtrack worse
 
-                if (this.path.get(rangeEndExcl - 1).distanceSq(destination) < client.player.getEntityPos().squaredDistanceTo(Vec3d.of(destination))) {
+                if (path.get(rangeEndExcl - 1).distanceSq(destination) <
+                    MinecraftContext.player().getEntityPos().squaredDistanceTo(Vec3d.of(destination))) {
                     pathRecalculateSegment(rangeEndExcl - 1); // rejoin after current render distance
                 } else {
                     pathRecalculateAll(); // large backtrack detected. ignore render distance, rejoin later on
@@ -218,7 +218,7 @@ public final class PathManager {
                 return;
             }
         }
-        if (!canSeeAny && rangeStartIncl < rangeEndExcl - 2 && client.player.isGliding()) {
+        if (!canSeeAny && rangeStartIncl < rangeEndExcl - 2 && MinecraftContext.player().isGliding()) {
             pathRecalculateSegment(rangeEndExcl - 1);
         }
     }
@@ -242,36 +242,36 @@ public final class PathManager {
         }
 
         this.path = new NetherPath(path, complete);
-        this.playerNear = 0;
+        playerNear = 0;
     }
 
     public void pathRecalculateSegment(final int upToIncl) {
-        final List<BetterBlockPos> after = this.path.subList(upToIncl + 1, this.path.size());
+        final List<BetterBlockPos> after = path.subList(upToIncl + 1, path.size());
 
         try {
-            PathSegment segment = npf.pathFindAsync(client.player.getBlockPos(), path.get(upToIncl)).get();
+            PathSegment segment = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), path.get(upToIncl)).get();
             Stream<BetterBlockPos> unpacked = Stream.concat(Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong),
-                                                            after.stream());
-            client.execute(() -> setPath(unpacked, path.complete));
+                    after.stream());
+            MinecraftContext.client().execute(() -> setPath(unpacked, path.complete));
         } catch (InterruptedException e) {
             throw new Error("计算中被中断!");
         } catch (ExecutionException e) {
             if (e.getCause() instanceof PathCalculationException) {
-                msg.SendMsg(client.player, "计算路径出错!", MsgLevel.warning);
+                msg.SendMsg("计算路径出错!", MsgLevel.warning);
             }
         }
     }
 
     public void pathRecalculateAll() {
         try {
-            PathSegment segment = npf.pathFindAsync(client.player.getBlockPos(), destination).get();
+            PathSegment segment = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), destination).get();
             Stream<BetterBlockPos> unpacked = Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong);
-            client.execute(() -> setPath(unpacked, segment.finished));
+            MinecraftContext.client().execute(() -> setPath(unpacked, segment.finished));
         } catch (InterruptedException e) {
             throw new Error("计算中被中断!");
         } catch (ExecutionException e) {
             if (e.getCause() instanceof PathCalculationException) {
-                msg.SendMsg(client.player, "计算路径出错!", MsgLevel.warning);
+                msg.SendMsg("计算路径出错!", MsgLevel.warning);
             }
         }
     }

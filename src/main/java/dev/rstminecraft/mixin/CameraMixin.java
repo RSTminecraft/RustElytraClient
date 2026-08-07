@@ -19,6 +19,6 @@ public abstract class CameraMixin {
     @Inject(method = "update", at = @At("TAIL"))
     private void overrideVisualRotation(World world, Entity entity, boolean bl, boolean bl2, float f, CallbackInfo ci) {
         if (cameraMixinSwitch)
-            this.setRotation(fixedYaw, fixedPitch);
+            setRotation(fixedYaw, fixedPitch);
     }
 }

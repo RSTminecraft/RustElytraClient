@@ -1,7 +1,7 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.RustClientCore.MsgLevel;
+import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.ShulkerBoxBlock;
@@ -44,7 +44,7 @@ import java.util.Objects;
 
 import static dev.rstminecraft.FireballProtect.isHittingFireball;
 import static dev.rstminecraft.ModTask.*;
-import static dev.rstminecraft.RustClientCore.TaskManager.*;
+import static dev.rstminecraft.RustClientCore.task.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
 
 
@@ -68,7 +68,7 @@ public class SupplyTask {
             // 到达方块中心则停止
             if (Math.abs(delta.x) < 0.2 && Math.abs(delta.z) < 0.2) {
                 client.options.forwardKey.setPressed(false);
-                msg.SendMsg(client.player, "行走完成", MsgLevel.tip);
+                msg.SendMsg("行走完成", MsgLevel.tip);
                 return;
             }
             // 调整朝向
@@ -116,7 +116,7 @@ public class SupplyTask {
     }
 
     private static void mergeItemInInv(@NotNull MinecraftClient client, @NotNull stackChecker c, @NotNull ScreenHandler handler, int slotMin,
-                                       int slotMax) {
+            int slotMax) {
         if (client.player == null || client.interactionManager == null)
             throw new TaskException("null");
         while (true) {
@@ -423,7 +423,7 @@ public class SupplyTask {
         if (player == null || client.getNetworkHandler() == null)
             throw new TaskException("null");
         // 准备打开
-        msg.SendMsg(client.player, "尝试放置末影箱成功，现在打开末影箱", MsgLevel.tip);
+        msg.SendMsg("尝试放置末影箱成功，现在打开末影箱", MsgLevel.tip);
         BlockHitResult hitResult2 = new BlockHitResult(Vec3d.ofCenter(targetPos), Direction.UP, targetPos, false);
         ActionResult result = computeOnMain(() -> {
             if (client.interactionManager == null)
@@ -544,13 +544,13 @@ public class SupplyTask {
 
         // 没找到任何目标物品
         if (sb.isEmpty()) {
-            msg.SendMsg(client.player, "没有目标物品。", MsgLevel.debug);
+            msg.SendMsg("没有目标物品。", MsgLevel.debug);
         } else {
             String[] lines = sb.toString().split("\n");
             for (String line : lines) {
                 if (line == null || line.isEmpty())
                     continue;
-                msg.SendMsg(client.player, line, MsgLevel.debug);
+                msg.SendMsg(line, MsgLevel.debug);
             }
         }
 
@@ -647,11 +647,11 @@ public class SupplyTask {
      * @param handler 潜影盒窗口handler
      */
     private static void PutOutSupply(@NotNull MinecraftClient client, @NotNull ScreenHandler handler, @NotNull List<Integer> replaceList,
-                                     boolean isXP, int m, int n) {
+            boolean isXP, int m, int n) {
         runOnMain(() -> {
             if (client.player == null || client.interactionManager == null)
                 throw new TaskException("Player为null");
-            msg.SendMsg(client.player, "本盒需要取出" + m + "组烟花," + n + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.debug);
+            msg.SendMsg("本盒需要取出" + m + "组烟花," + n + (isXP ? "组附魔之瓶" : "个鞘翅"), MsgLevel.debug);
 
 
             mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, handler, 0, 27);
@@ -785,7 +785,7 @@ public class SupplyTask {
         int enderCount = countItemInInventory(client.player, Items.ENDER_CHEST);
         int obsidianCount = countItemInInventory(client.player, Items.OBSIDIAN);
         runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(obsidianCount + 1,
-                                                                                             client.world.getBlockState(EnderChestPos).getBlock()));
+                client.world.getBlockState(EnderChestPos).getBlock()));
 
         // 等待baritone挖掘
         for (int i = 0; i < 100; i++) {
@@ -803,7 +803,7 @@ public class SupplyTask {
             }
             delay(1);
         }
-        msg.SendMsg(client.player, "挖掘完毕", MsgLevel.tip);
+        msg.SendMsg("挖掘完毕", MsgLevel.tip);
     }
 
     /**
@@ -966,7 +966,7 @@ public class SupplyTask {
         if (FireworkInNeed == 0 && ElytraInNeed == 0 && hasFood && hasTotem)
             return;
 
-        msg.SendMsg(client.player, "所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + "组附魔之瓶/鞘翅", MsgLevel.info);
+        msg.SendMsg("所需补给:" + FireworkInNeed + "组烟花," + ElytraInNeed + "组附魔之瓶/鞘翅", MsgLevel.info);
 
         // 扑灭身边火焰
         extinguishFire(client);
@@ -997,7 +997,7 @@ public class SupplyTask {
         else if (ShulkerList.size() > 4)
             throw new TaskException("末影箱中物品过于分散！");
         else
-            msg.SendMsg(client.player, "所需的潜影盒槽位列表为：" + ShulkerList, MsgLevel.info);
+            msg.SendMsg("所需的潜影盒槽位列表为：" + ShulkerList, MsgLevel.info);
         List<Integer> replaceSlot = new ArrayList<>();
         int m = 0, n = 0;
         for (int i = 9; i < 36; i++) {
@@ -1041,7 +1041,7 @@ public class SupplyTask {
             } else
                 replaceSlot.add(i);
         }
-        msg.SendMsg(client.player, "可替换列表为" + replaceSlot, MsgLevel.debug);
+        msg.SendMsg("可替换列表为" + replaceSlot, MsgLevel.debug);
         if (client.player.getInventory().getStack(findItemInHotBar(client.player, Food)).getCount() < 30) {
             int slot2 = -1, max = 0;
             for (int i = 0; i < 27; i++) {
@@ -1077,7 +1077,7 @@ public class SupplyTask {
             if (SupplySlot > 26 || SupplySlot < 0)
                 throw new TaskException("所需槽位异常");
             else
-                msg.SendMsg(client.player, "准备拿出" + SupplySlot, MsgLevel.tip);
+                msg.SendMsg("准备拿出" + SupplySlot, MsgLevel.tip);
             // 找可以用来放潜影盒的槽位
             slot = -1;
             for (int j = 6; j < 9; j++) {
@@ -1098,14 +1098,14 @@ public class SupplyTask {
             HandledScreen<?> finalEnderChestHandled = EnderChestHandled;
             runOnMain(() -> {
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP,
-                                                    client.player);
+                        client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP,
-                                                    client.player);
+                        client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP,
-                                                    client.player);
+                        client.player);
                 finalEnderChestHandled.close();
             });
-            msg.SendMsg(client.player, "取出成功！", MsgLevel.tip);
+            msg.SendMsg("取出成功！", MsgLevel.tip);
 
             delay(5);
 
@@ -1127,24 +1127,24 @@ public class SupplyTask {
             // 等待潜影盒窗口
             HandledScreen<?> ShulkerHandled = WaitForScreen(client, ShulkerName);
             mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 1, ShulkerHandled.getScreenHandler(), 0,
-                           27);
+                    27);
             mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 2, ShulkerHandled.getScreenHandler(), 0,
-                           27);
+                    27);
             mergeItemInInv(client, s2 -> s2.getItem() == Items.FIREWORK_ROCKET && getFireworkLevel(s2) == 3, ShulkerHandled.getScreenHandler(), 0,
-                           27);
+                    27);
             mergeItemInInv(client, s2 -> s2.getItem() == Items.EXPERIENCE_BOTTLE, ShulkerHandled.getScreenHandler(), 0, 27);
             // 拿出补给
             int shouldPutOutFirework = Math.min(FireworkInNeed, ShulkerData[SupplySlot][0]);
             int shouldPutOutElytra = Math.min(ElytraInNeed, ShulkerData[SupplySlot][1]);
             PutOutSupply(client, ShulkerHandled.getScreenHandler(), replaceSlot, type == TaskType.EXP_BOTTLE, shouldPutOutFirework,
-                         shouldPutOutElytra);
-            msg.SendMsg(client.player, "取出补给物品成功", MsgLevel.tip);
+                    shouldPutOutElytra);
+            msg.SendMsg("取出补给物品成功", MsgLevel.tip);
             FireworkInNeed -= shouldPutOutFirework;
             ElytraInNeed -= shouldPutOutElytra;
             // 取出成功，挖掉潜影盒
             mineSupplyShulker(client, ShulkerTargetPos);
 
-            msg.SendMsg(client.player, "挖掘完毕，放回末影箱", MsgLevel.tip);
+            msg.SendMsg("挖掘完毕，放回末影箱", MsgLevel.tip);
             // 重新打开末影箱
             runOnMain(() -> lookAt(client.player, Vec3d.ofCenter(EnderChestTargetPos)));
             delay(2);
@@ -1158,19 +1158,19 @@ public class SupplyTask {
             runOnMain(() -> {
 
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP,
-                                                    client.player);
+                        client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, SupplySlot, 0, SlotActionType.PICKUP,
-                                                    client.player);
+                        client.player);
                 client.interactionManager.clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, 54 + ShulkerSlot, 0, SlotActionType.PICKUP,
-                                                    client.player);
+                        client.player);
             });
-            msg.SendMsg(client.player, "放回完毕", MsgLevel.tip);
+            msg.SendMsg("放回完毕", MsgLevel.tip);
             delay(1);
         }
         runOnMain(() -> client.setScreen(null));
         // 挖掘末影箱
         mineEnderChest(client, EnderChestTargetPos);
-        msg.SendMsg(client.player, "补给任务圆满完成！", MsgLevel.tip);
+        msg.SendMsg("补给任务圆满完成！", MsgLevel.tip);
     }
 
     private interface stackChecker {

@@ -34,13 +34,13 @@ public final class NetherPathfinderContext {
 
 
     final long context;
-    private final long seed;
+    public final long seed;
     private final ExecutorService executor;
 
     public NetherPathfinderContext(long seed) {
-        this.context = NetherPathfinder.newContext(seed);
+        context = NetherPathfinder.newContext(seed);
         this.seed = seed;
-        this.executor = Executors.newSingleThreadExecutor();
+        executor = Executors.newSingleThreadExecutor();
     }
 
     private static void writeChunkData(WorldChunk chunk, long ptr) {
@@ -89,36 +89,34 @@ public final class NetherPathfinderContext {
     }
 
     public boolean hasChunk(ChunkPos pos) {
-        return NetherPathfinder.hasChunkFromJava(this.context, pos.x, pos.z);
+        return NetherPathfinder.hasChunkFromJava(context, pos.x, pos.z);
     }
 
     public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateUtils boi) {
-        this.executor.execute(() -> {
-            synchronized (this.cullingLock) {
+        executor.execute(() -> {
+            synchronized (cullingLock) {
                 boi.chunkPtr = 0L;
-                NetherPathfinder.cullFarChunks(this.context, chunkX, chunkZ, maxDistanceBlocks);
+                NetherPathfinder.cullFarChunks(context, chunkX, chunkZ, maxDistanceBlocks);
             }
         });
     }
 
     public void queueForPacking(final WorldChunk chunkIn) {
         final SoftReference<WorldChunk> ref = new SoftReference<>(chunkIn);
-        this.executor.execute(() -> {
+        executor.execute(() -> {
 
-            // TODO: Prioritize packing recent chunks and/or ones that the path goes through,
-            //       and prune the oldest chunks per chunkPackerQueueMaxSize
             final WorldChunk chunk = ref.get();
             if (chunk != null) {
-                long ptr = NetherPathfinder.getOrCreateChunk(this.context, chunk.getPos().x, chunk.getPos().z);
+                long ptr = NetherPathfinder.getOrCreateChunk(context, chunk.getPos().x, chunk.getPos().z);
                 writeChunkData(chunk, ptr);
             }
         });
     }
 
     public void queueBlockUpdate(BlockChangeEvent event) {
-        this.executor.execute(() -> {
+        executor.execute(() -> {
             ChunkPos chunkPos = event.getChunkPos();
-            long ptr = NetherPathfinder.getChunkPointer(this.context, chunkPos.x, chunkPos.z);
+            long ptr = NetherPathfinder.getChunkPointer(context, chunkPos.x, chunkPos.z);
             if (ptr == 0)
                 return; // this shouldn't ever happen
             event.getBlocks().forEach(pair -> {
@@ -133,13 +131,13 @@ public final class NetherPathfinderContext {
 
     public CompletableFuture<PathSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
         return CompletableFuture.supplyAsync(() -> {
-            final PathSegment segment = NetherPathfinder.pathFind(this.context, src.getX(), src.getY(), src.getZ(), dst.getX(), dst.getY(),
+            final PathSegment segment = NetherPathfinder.pathFind(context, src.getX(), src.getY(), src.getZ(), dst.getX(), dst.getY(),
                                                                   dst.getZ(), true, false, 10000, !elytraPredictTerrain.get());
             if (segment == null) {
                 throw new PathCalculationException("Path calculation failed");
             }
             return segment;
-        }, this.executor);
+        }, executor);
     }
 
     /**
@@ -155,7 +153,7 @@ public final class NetherPathfinderContext {
      * @return {@code true} if there is visibility between the points
      */
     private boolean raytrace(final double startX, final double startY, final double startZ, final double endX, final double endY, final double endZ) {
-        return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, startX, startY, startZ, endX, endY, endZ);
+        return NetherPathfinder.isVisible(context, NetherPathfinder.CACHE_MISS_SOLID, startX, startY, startZ, endX, endY, endZ);
     }
 
     /**
@@ -169,44 +167,41 @@ public final class NetherPathfinderContext {
     public boolean raytrace(final Vec3d start, final Vec3d end) {
         if (start.equals(end))
             return true;
-        return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, start.x, start.y, start.z, end.x, end.y, end.z);
+        return NetherPathfinder.isVisible(context, NetherPathfinder.CACHE_MISS_SOLID, start.x, start.y, start.z, end.x, end.y, end.z);
     }
 
     public boolean raytrace(final int count, final double[] src, final double[] dst, final int visibility) {
         return switch (visibility) {
-            case Visibility.ALL -> NetherPathfinder.isVisibleMulti(this.context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, false) == -1;
-            case Visibility.NONE -> NetherPathfinder.isVisibleMulti(this.context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) == -1;
-            case Visibility.ANY -> NetherPathfinder.isVisibleMulti(this.context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) != -1;
+            case Visibility.ALL -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, false) == -1;
+            case Visibility.NONE -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) == -1;
+            case Visibility.ANY -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) != -1;
             default -> throw new IllegalArgumentException("lol");
         };
     }
 
     public void raytrace(final int count, final double[] src, final double[] dst, final boolean[] hitsOut, final double[] hitPosOut) {
-        NetherPathfinder.raytrace(this.context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, hitsOut, hitPosOut);
+        NetherPathfinder.raytrace(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, hitsOut, hitPosOut);
     }
 
     public void cancel() {
-        NetherPathfinder.cancel(this.context);
+        NetherPathfinder.cancel(context);
     }
 
     public void destroy() {
-        this.cancel();
+        cancel();
         // Ignore anything that was queued up, just shutdown the executor
-        this.executor.shutdownNow();
+        executor.shutdownNow();
 
         try {
-            while (!this.executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+            while (!executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        NetherPathfinder.freeContext(this.context);
+        NetherPathfinder.freeContext(context);
     }
 
-    public long getSeed() {
-        return this.seed;
-    }
 
     public static final class Visibility {
 

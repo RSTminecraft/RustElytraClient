@@ -25,9 +25,9 @@ public final class BlockStateUtils {
     private WorldChunk prev = null;
 
     public BlockStateUtils(final NetherPathfinderContext context, final World world) {
-        this.contextPtr = context.context;
+        contextPtr = context.context;
         this.world = world;
-        this.provider = (ClientChunkManager) world.getChunkManager();
+        provider = (ClientChunkManager) world.getChunkManager();
     }
 
     public boolean getFromOctree(final int x, final int y, final int z) {
@@ -36,12 +36,12 @@ public final class BlockStateUtils {
         }
         final int chunkX = x >> 4;
         final int chunkZ = z >> 4;
-        if (this.chunkPtr == 0 || (chunkX ^ this.prevChunkX | chunkZ ^ this.prevChunkZ) != 0) {
-            this.prevChunkX = chunkX;
-            this.prevChunkZ = chunkZ;
-            this.chunkPtr = NetherPathfinder.getOrCreateChunk(this.contextPtr, chunkX, chunkZ);
+        if (chunkPtr == 0 || (chunkX ^ prevChunkX | chunkZ ^ prevChunkZ) != 0) {
+            prevChunkX = chunkX;
+            prevChunkZ = chunkZ;
+            chunkPtr = NetherPathfinder.getOrCreateChunk(contextPtr, chunkX, chunkZ);
         }
-        return Octree.getBlock(this.chunkPtr, x & 0xF, y & 0x7F, z & 0xF);
+        return Octree.getBlock(chunkPtr, x & 0xF, y & 0x7F, z & 0xF);
     }
 
     public BlockState getFromClient(int x, int y, int z) {

@@ -2,10 +2,10 @@ package dev.rstminecraft.elytra;
 
 import baritone.api.utils.Rotation;
 import baritone.api.utils.RotationUtils;
+import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.utils.Pair;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.floats.FloatIterator;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
@@ -19,13 +19,11 @@ import static dev.rstminecraft.utils.FastMath.fastCeil;
 import static dev.rstminecraft.utils.FastMath.fastFloor;
 
 public class AngleSolver {
-    private final MinecraftClient client;
     private final NetherPathfinderContext npf;
     private final PathManager pathManager;
     private final BlockStateUtils bsu;
 
-    public AngleSolver(@NotNull MinecraftClient client, @NotNull NetherPathfinderContext npf, PathManager pathManager, BlockStateUtils bsu) {
-        this.client = client;
+    public AngleSolver(@NotNull NetherPathfinderContext npf, PathManager pathManager, BlockStateUtils bsu) {
         this.npf = npf;
         this.pathManager = pathManager;
         this.bsu = bsu;
@@ -154,12 +152,12 @@ public class AngleSolver {
                     if (isHitBoxClear(start, dest, growth, ignoreLava)) {
                         // Yaw is trivial, just calculate the rotation required to face the destination
 
-                        final float yaw = RotationUtils.calcRotationFromVec3d(start, dest, new Rotation(client.player.getYaw(),
-                                                                                                        client.player.getPitch())).getYaw();
+                        final float yaw = RotationUtils.calcRotationFromVec3d(start, dest, new Rotation(MinecraftContext.player().getYaw(),
+                                                                                                        MinecraftContext.player().getPitch())).getYaw();
 
                         final Pair<Float, Boolean> pitch = solvePitch(start, dest, motion, relaxation, firework, ignoreLava);
                         if (pitch == null) {
-                            solution = new AngleSolution(new Rotation(yaw, client.player.getPitch()), null, false, false);
+                            solution = new AngleSolution(new Rotation(yaw, MinecraftContext.player().getPitch()), null, false, false);
                             continue;
                         }
 
@@ -177,7 +175,7 @@ public class AngleSolver {
     private Pair<Float, Boolean> solvePitch(Vec3d start, Vec3d goal, Vec3d motion, final int relaxation, FireworkBoost firework, boolean ignoreLava) {
         final boolean desperate = relaxation == 2;
         final float goodPitch = RotationUtils.calcRotationFromVec3d(start, goal,
-                                                                    new Rotation(client.player.getYaw(), client.player.getPitch())).getPitch();
+                                                                    new Rotation(MinecraftContext.player().getYaw(), MinecraftContext.player().getPitch())).getPitch();
         final FloatArrayList pitches = pitchesToSolveFor(goodPitch, desperate);
 
         final IntTriFunction<PitchResult> solve = (ticks, ticksBoosted, ticksBoostDelay) -> solvePitch(start, goal, motion, relaxation,
@@ -258,13 +256,13 @@ public class AngleSolver {
                 // Ensure that the goal is visible along the entire simulated path
                 // Reverse order iteration since the last position is most likely to fail
                 for (int i = result.steps.size() - 1; i >= 1; i--) {
-                    if (!clearView(start.add(result.steps.get(i)), goal, ignoreLava)) {
+                    if (hasObstacle(start.add(result.steps.get(i)), goal, ignoreLava)) {
                         continue outer;
                     }
                 }
             } else {
                 // Ensure that the goal is visible from the final position
-                if (!clearView(start.add(result.steps.getLast()), goal, ignoreLava)) {
+                if (hasObstacle(start.add(result.steps.getLast()), goal, ignoreLava)) {
                     continue;
                 }
             }
@@ -280,13 +278,13 @@ public class AngleSolver {
         displacement.add(Vec3d.ZERO);
         int remainingTicksBoosted = ticksBoosted;
 
-        Box hitbox = client.player.getBoundingBox();
+        Box hitbox = MinecraftContext.player().getBoundingBox();
         for (int i = 0; i < ticks; i++) {
             if (delta.lengthSquared() < 1) {
                 break;
             }
             final Rotation rotation = RotationUtils.calcRotationFromVec3d(Vec3d.ZERO, delta,
-                                                                          new Rotation(client.player.getYaw(), client.player.getPitch()).withPitch(
+                                                                          new Rotation(MinecraftContext.player().getYaw(), MinecraftContext.player().getPitch()).withPitch(
                                                                                   pitch));
             final Vec3d lookDirection = RotationUtils.calcLookDirectionFromRotation(rotation);
 
@@ -328,13 +326,13 @@ public class AngleSolver {
 
     private boolean isHitBoxClear(Vec3d start, Vec3d dest, Double growAmount, boolean ignoreLava) {
 
-        if (!clearView(start, dest, ignoreLava))
+        if (hasObstacle(start, dest, ignoreLava))
             return false;
         if (growAmount == null) {
             return true;
         }
 
-        final Box bb = client.player.getBoundingBox().expand(growAmount);
+        final Box bb = MinecraftContext.player().getBoundingBox().expand(growAmount);
 
         final double ox = dest.x - start.x;
         final double oy = dest.y - start.y;
@@ -366,14 +364,14 @@ public class AngleSolver {
         return npf.raytrace(8, src, dst, NetherPathfinderContext.Visibility.ALL);
     }
 
-    public boolean clearView(Vec3d start, Vec3d dest, boolean ignoreLava) {
+    public boolean hasObstacle(Vec3d start, Vec3d dest, boolean ignoreLava) {
         if (!ignoreLava) {
             // if start == dest then the cpp raytracer dies
-            return start.equals(dest) || npf.raytrace(start, dest);
+            return !start.equals(dest) && !npf.raytrace(start, dest);
         } else {
-            return client.world.raycast(
-                    new RaycastContext(start, dest, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, client.player)).getType() ==
-                   HitResult.Type.MISS;
+            return MinecraftContext.world().raycast(
+                            new RaycastContext(start, dest, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, MinecraftContext.player()))
+                           .getType() != HitResult.Type.MISS;
         }
     }
 

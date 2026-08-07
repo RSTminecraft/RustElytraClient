@@ -2,10 +2,10 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组GUI实现。
 
-import dev.rstminecraft.RustClientCore.AbstractScr;
-import dev.rstminecraft.RustClientCore.Messenger;
-import dev.rstminecraft.RustClientCore.MsgLevel;
-import dev.rstminecraft.RustClientCore.SimpleScr;
+import dev.rstminecraft.RustClientCore.screen.AbstractScr;
+import dev.rstminecraft.RustClientCore.messenger.Messenger;
+import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
+import dev.rstminecraft.RustClientCore.screen.SimpleScr;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
@@ -86,8 +86,8 @@ public class RSTScr extends SimpleScr {
         public ciScr(Screen parent) {
             super(Text.literal("RST Auto Elytra Mod Menu"), null, parent, ciButtonsRow, ciButtonsCol, null);
             super.entry = new SrcEntry[]{new SrcInputEntry("目的地X坐标", "目的地X坐标",
-                                                           str -> this.x = str), // 一个X轴输入框
-                    new SrcInputEntry("目的地Z坐标", "目的地Z坐标", str -> this.z = str), // 一个Y轴输入框
+                                                           str -> x = str), // 一个X轴输入框
+                    new SrcInputEntry("目的地Z坐标", "目的地Z坐标", str -> z = str), // 一个Y轴输入框
                     new SrcButtonEntry("开始飞行(鞘翅模式)", "开始前往上方输入的坐标,并在必要时补充新的满耐久鞘翅",
                                        () -> {
                                            int x1, z1;
@@ -107,12 +107,12 @@ public class RSTScr extends SimpleScr {
                                            if (client == null || client.player == null)
                                                return;
                                            if (ModTask.status != ModTask.TaskStatus.NO_TASK) {
-                                               msg.SendMsg(client.player, "模组遇到线程状态错误，通常重启可解决！",
+                                               msg.SendMsg("模组遇到线程状态错误，通常重启可解决！",
                                                            MsgLevel.warning);
                                                return;
                                            }
                                            // 开始飞行
-                                           msg.SendMsg(client.player, "任务开始！", MsgLevel.warning);
+                                           msg.SendMsg("任务开始！", MsgLevel.warning);
                                            ModTask.startTask(ModTask.TaskType.ELYTRA, isAutoLog.get(),
                                                              isAutoLogOnSeg1.get(), x1, z1);
                                            client.setScreen(null);
@@ -137,11 +137,11 @@ public class RSTScr extends SimpleScr {
                             return;
 
                         if (ModTask.status != ModTask.TaskStatus.NO_TASK) {
-                            msg.SendMsg(client.player, "模组遇到线程状态错误，通常重启可解决！", MsgLevel.warning);
+                            msg.SendMsg("模组遇到线程状态错误，通常重启可解决！", MsgLevel.warning);
                             return;
                         }
                         // 开始飞行
-                        msg.SendMsg(client.player, "任务开始！", MsgLevel.warning);
+                        msg.SendMsg("任务开始！", MsgLevel.warning);
                         ModTask.startTask(ModTask.TaskType.EXP_BOTTLE, isAutoLog.get(), isAutoLogOnSeg1.get(), x1, z1);
                         client.setScreen(null);
                     }),// 一个“开始飞行”按钮
@@ -166,12 +166,12 @@ public class RSTScr extends SimpleScr {
                                                return;
 
                                            if (ModTask.status != ModTask.TaskStatus.NO_TASK) {
-                                               msg.SendMsg(client.player, "模组遇到线程状态错误，通常重启可解决！",
+                                               msg.SendMsg("模组遇到线程状态错误，通常重启可解决！",
                                                            MsgLevel.warning);
                                                return;
                                            }
                                            // 开始飞行
-                                           msg.SendMsg(client.player, "任务开始！", MsgLevel.warning);
+                                           msg.SendMsg("任务开始！", MsgLevel.warning);
                                            ModTask.startTask(ModTask.TaskType.INFINITY_ELYTRA, isAutoLog.get(),
                                                              isAutoLogOnSeg1.get(), x1, z1);
                                            client.setScreen(null);
@@ -195,7 +195,7 @@ public class RSTScr extends SimpleScr {
                     , new SrcSwitchEntry("第一段自动退出",
                                          "在任务刚开始时若失败是否自动退出。假如否，您可以避免在第一次补给时因“末影箱中没有补给物品”等简单原因自动退出（造成时间浪费），但请确保第一次补给成功后再离开电脑",
                                          isAutoLogOnSeg1::set, isAutoLogOnSeg1.get()) //第一次自动退出开关
-                    , new SrcSwitchEntry("发送调试信息", "是否发送调试信息", (b) -> {
+                    , new SrcSwitchEntry("发送调试信息", "是否发送调试信息", b -> {
                 DisplayDebug.set(b);
                 msg = new Messenger("Rust Elytra", b ? MsgLevel.debug : MsgLevel.info, MODLOGGER);
             }, DisplayDebug.get())// 调试信息
@@ -222,7 +222,7 @@ public class RSTScr extends SimpleScr {
         public AdvancedSettingsScr(Screen parent) {
             super(Text.literal("RST Auto Elytra Mod Settings Menu"));
             this.parent = parent;
-            this.buttonWidth = Math.max(100, Math.min(600, (int) (this.width * 0.7)));
+            buttonWidth = Math.max(100, Math.min(600, (int) (width * 0.7)));
         }
 
         private void BuildButtons() {

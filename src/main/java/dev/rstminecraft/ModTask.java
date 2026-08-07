@@ -1,8 +1,8 @@
 package dev.rstminecraft;
 
 import baritone.api.BaritoneAPI;
-import dev.rstminecraft.RustClientCore.MsgLevel;
-import dev.rstminecraft.RustClientCore.TaskManager;
+import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
+import dev.rstminecraft.RustClientCore.task.TaskManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
@@ -137,7 +137,7 @@ public class ModTask {
         TaskManager.runTask(() -> {
             while (ModStatus != ModStatuses.idle) {
                 if (ModStatus == ModStatuses.canceled) {
-                    msg.SendMsg(client.player, "任务中止", MsgLevel.fatal);
+                    msg.SendMsg("任务中止", MsgLevel.fatal);
                     modMainTask.interrupt();
 
                     resetMixin();
@@ -164,7 +164,7 @@ public class ModTask {
             int finalNowSeg = nowSeg;
 
             // region 补给任务
-            msg.SendMsg(client.player, "第" + nowSeg + "段补给任务开始！", MsgLevel.info);
+            msg.SendMsg("第" + nowSeg + "段补给任务开始！", MsgLevel.info);
 
             // 开启补给保护任务
             Thread SupplyProtectThread = TaskManager.runTask(() -> SupplyTaskProtector(client, finalNowSeg), "Rust Elytra 补给保护任务", true, false);
@@ -175,8 +175,8 @@ public class ModTask {
             } catch (TaskException e) {
                 // 补给失败
                 e.printStackTrace();
-                msg.SendMsg(client.player, e.getMessage(), MsgLevel.error);
-                msg.SendMsg(client.player, "补给任务失败", MsgLevel.fatal);
+                msg.SendMsg(e.getMessage(), MsgLevel.error);
+                msg.SendMsg("补给任务失败", MsgLevel.fatal);
                 taskFailed(client, "补给任务失败！自动退出！", nowSeg - 1);
                 break;
             } finally {
@@ -188,14 +188,14 @@ public class ModTask {
             // endregion
 
             // region 飞行任务
-            msg.SendMsg(client.player, "第" + nowSeg + "段飞行任务开始！", MsgLevel.info);
+            msg.SendMsg("第" + nowSeg + "段飞行任务开始！", MsgLevel.info);
 
             // 开启鞘翅保护任务
             Thread ElytraProtectThread = TaskManager.runTask(() -> ElytraTaskProtector(client, finalNowSeg), "Rust Elytra 鞘翅保护任务", true, false);
             // 开启鞘翅任务
             try {
                 if (elytraTask(client, TargetX, TargetZ, type)) {
-                    msg.SendMsg(client.player, "到达目的地！圆满完成！！！", MsgLevel.warning);
+                    msg.SendMsg("到达目的地！圆满完成！！！", MsgLevel.warning);
                     if (isAutoLog) {
                         MutableText text = Text.literal("[RSTAutoLog] ");
                         text.append(Text.literal("已经到达目的地"));
@@ -206,7 +206,7 @@ public class ModTask {
                 }
             } catch (TaskException e) {
                 // 飞行失败
-                msg.SendMsg(client.player, e.getMessage(), MsgLevel.error);
+                msg.SendMsg(e.getMessage(), MsgLevel.error);
                 e.printStackTrace();
                 taskFailed(client, e.getMessage(), nowSeg);
                 break;
@@ -230,7 +230,7 @@ public class ModTask {
             return;
         float h = client.player.getHealth();
         while (true) {
-            if (!TaskManager.computeOnMain(() -> FireballProtector(client))) {
+            if (!TaskManager.computeOnMain(FireballProtect::FireballProtector)) {
                 ModStatus = ModStatuses.canceled;
                 taskFailed(client, "无法拦截火球！自动退出！", nowSeg - 1);
                 return;
@@ -290,7 +290,7 @@ public class ModTask {
                 client.player.networkHandler.onDisconnect(new DisconnectS2CPacket(text));
             }
         } else if (client.player != null) {
-            msg.SendMsg(client.player, "任务结束。" + str, MsgLevel.fatal);
+            msg.SendMsg("任务结束。" + str, MsgLevel.fatal);
         }
         ModStatus = ModStatuses.idle;
     }
