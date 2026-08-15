@@ -48,23 +48,24 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    modCompileOnly "meteordevelopment:baritone:1.21.11-SNAPSHOT"
+    modCompileOnly "meteordevelopment:baritone:1.21.11-SNAPSHOT", { changing = false }
 
-    modImplementation "dev.rstminecraft:RustClientCore:1.2-SNAPSHOT",{changing=true }
-    include "dev.rstminecraft:RustClientCore:1.2-SNAPSHOT"
+    modImplementation "dev.rstminecraft:RustClientCore:1.3-SNAPSHOT", { changing = true }
+    include "dev.rstminecraft:RustClientCore:1.3-SNAPSHOT", { changing = true }
 
     implementation "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
     include "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
 }
 
 
-
 processResources {
     inputs.property "version", project.version
 
     filesMatching("fabric.mod.json") {
-        expand "version": inputs.properties.version
+        expand([version: inputs.properties.version])
     }
+
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
 // Java21
@@ -113,6 +114,32 @@ publishing {
     }
 }
 
-loom{
+loom {
     accessWidenerPath = file("src/main/resources/rust-elytra-client.accesswidener")
 }
+
+configurations.configureEach {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+}
+
+
+def cleanLoomRustCache() {
+    def loomCacheDir = file("${project.rootDir}/.gradle/loom-cache")
+    if (!loomCacheDir.exists()) return
+
+    loomCacheDir.eachFileRecurse { file ->
+        def fileName = file.name.toLowerCase()
+        if (fileName.endsWith('.jar') && fileName.contains('rustclientcore') && fileName.contains('snapshot')) {
+            try {
+                if (file.exists() && file.delete()) {
+                    logger.lifecycle("====== [Fabric Rust] 删除重映射缓存: ${file.name} ======")
+                }
+            } catch (Exception ignored) {
+                logger.log(LogLevel.WARN, "====== [Fabric Rust] 警告：文件被占用: ${file.name} ======")
+
+            }
+        }
+    }
+}
+
+cleanLoomRustCache()

@@ -1,6 +1,5 @@
 package dev.rstminecraft.elytra;
 
-import baritone.api.event.events.BlockChangeEvent;
 import dev.babbaj.pathfinder.NetherPathfinder;
 import dev.babbaj.pathfinder.Octree;
 import dev.babbaj.pathfinder.PathSegment;
@@ -11,7 +10,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.ChunkSection;
-import net.minecraft.world.chunk.PaletteResizeListener;
 import net.minecraft.world.chunk.PalettedContainer;
 import net.minecraft.world.chunk.WorldChunk;
 
@@ -31,10 +29,8 @@ public final class NetherPathfinderContext {
     private static final BlockState AIR_BLOCK_STATE = Blocks.AIR.getDefaultState();
 
     public final Object cullingLock = new Object();
-
-
-    final long context;
     public final long seed;
+    final long context;
     private final ExecutorService executor;
 
     public NetherPathfinderContext(long seed) {
@@ -46,15 +42,21 @@ public final class NetherPathfinderContext {
     private static void writeChunkData(WorldChunk chunk, long ptr) {
         try {
             ChunkSection[] chunkInternalStorageArray = chunk.getSectionArray();
-            for (int y0 = 0; y0 < 8; y0++) {
+            for (int y0 = 0; y0 < Math.min(chunkInternalStorageArray.length, 24); y0++) {
                 final ChunkSection extendedBlockStorage = chunkInternalStorageArray[y0];
                 if (extendedBlockStorage == null) {
                     continue;
                 }
                 final PalettedContainer<BlockState> bsc = extendedBlockStorage.getBlockStateContainer();
                 int airId = -1;
-                if (bsc.data.palette().hasAny(state -> state.equals(AIR_BLOCK_STATE))) {
-                    airId = bsc.data.palette().index(AIR_BLOCK_STATE, PaletteResizeListener.throwing());
+                int caveAirId = -1;
+
+                for (int i = 0; i < bsc.data.palette().getSize(); i++) {
+                    BlockState bs = bsc.data.palette().get(i);
+                    if (bs == Blocks.AIR.getDefaultState())
+                        airId = i;
+                    else if (bs == Blocks.CAVE_AIR.getDefaultState())
+                        caveAirId = i;
                 }
                 // pasted from FasterWorldScanner
                 final PaletteStorage array = bsc.data.storage();
@@ -73,7 +75,7 @@ public final class NetherPathfinderContext {
                         int x = idx & 15;
                         int y = yReal + (idx >> 8);
                         int z = idx >> 4 & 15;
-                        Octree.setBlock(ptr, x, y, z, value != airId);
+                        Octree.setBlock(ptr, x, y, z, value != airId && value != caveAirId);
                     }
                 }
             }
@@ -132,7 +134,7 @@ public final class NetherPathfinderContext {
     public CompletableFuture<PathSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
         return CompletableFuture.supplyAsync(() -> {
             final PathSegment segment = NetherPathfinder.pathFind(context, src.getX(), src.getY(), src.getZ(), dst.getX(), dst.getY(),
-                                                                  dst.getZ(), true, false, 10000, !elytraPredictTerrain.get());
+                    dst.getZ(), true, false, 10000, !elytraPredictTerrain.get());
             if (segment == null) {
                 throw new PathCalculationException("Path calculation failed");
             }

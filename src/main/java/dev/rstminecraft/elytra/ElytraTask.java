@@ -1,19 +1,21 @@
 package dev.rstminecraft.elytra;
 
-import baritone.api.BaritoneAPI;
-import baritone.api.event.events.PacketEvent;
-import baritone.api.event.listener.AbstractGameEventListener;
-import baritone.api.utils.BetterBlockPos;
-import baritone.utils.accessor.IFireworkRocketEntity;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
+import dev.rstminecraft.RustClientCore.eventListener.PacketListener;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
+import dev.rstminecraft.RustClientCore.renderer.BoxRenderer;
+import dev.rstminecraft.RustClientCore.renderer.TrajectoryRenderer;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
-import dev.rstminecraft.SupplyTask;
+import dev.rstminecraft.RustClientCore.task.TickPhase;
+import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
 import dev.rstminecraft.elytra.AngleSolver.FireworkBoost;
+import dev.rstminecraft.takeoff.TakeoffTargetFinder;
+import dev.rstminecraft.utils.SilentRotation;
 import dev.rstminecraft.utils.TimelinessCounter;
-import dev.rstminecraft.utils.TrajectoryRenderer;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.entity.projectile.FireworkRocketEntity;
 import net.minecraft.item.Item;
@@ -38,86 +40,165 @@ import java.util.stream.StreamSupport;
 
 import static dev.rstminecraft.RustClientCore.task.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
-import static dev.rstminecraft.utils.TrajectoryRenderer.drawTrajectory;
-import static dev.rstminecraft.utils.TrajectoryRenderer.markPos;
+import static dev.rstminecraft.takeoff.WalkToTakeoff.walkPath;
 
 public class ElytraTask {
 
-    private final BetterBlockPos destination;
     private final NetherPathfinderContext npf;
     private final BlockStateUtils bsu;
+    private final PathManager pathManager;
+    private final AngleSolver angleSolver;
 
     public ElytraTask(BlockPos destination) {
-        this.destination = new BetterBlockPos(destination);
         npf = new NetherPathfinderContext(netherSeed.get());
         bsu = new BlockStateUtils(npf, MinecraftContext.world());
+        pathManager = new PathManager(new BetterBlockPos(destination), npf, bsu);
+        angleSolver = new AngleSolver(npf, pathManager, bsu);
     }
 
+    public static LivingEntity getBoostedEntity(FireworkRocketEntity rocket) {
+        if (rocket.wasShotByEntity() && rocket.shooter == null) {
+            Entity e = rocket.getEntityWorld().getEntityById(
+                    rocket.getDataTracker().get(FireworkRocketEntity.SHOOTER_ENTITY_ID).getAsInt()
+            );
+            if (e instanceof LivingEntity le) {
+                rocket.shooter = le;
+            }
+        }
+        return rocket.shooter;
+    }
 
-    public void run() {
-        PathManager pathManager = new PathManager(destination, npf, bsu);
-        TaskManager.runTask(pathManager::run, "elytra路径管理器", true, true);
-        while (pathManager.path.isEmpty()) {
+    private void jump() {
+        MinecraftContext.client().options.jumpKey.setPressed(true);
+        TaskManager.runDeferred(() -> MinecraftContext.client().options.jumpKey.setPressed(false), TickPhase.POST, 0);
+    }
+
+    private void takeoff() {
+        double preY = MinecraftContext.player().getY();
+        jump();
+        for (int i = 0; MinecraftContext.player().getY() > preY + 1; i++) {
+            if (i > 20)
+                throw new RuntimeException("起跳高度错误");
             delay(1);
         }
-        delay(2);
-        AngleSolver angleSolver = new AngleSolver(npf, pathManager, bsu);
+        jump();
+        delay(1);
+    }
 
-        TaskManager.runTask(() -> {
-            while (true) {
-                TrajectoryRenderer.clear();
-                List<Vec3d> unpacked = new ArrayList<>();
-                for (int i = 0; i < Math.min(1000, pathManager.path.size()); i++) {
-                    unpacked.add(pathManager.path.get(i).toCenterPos());
-                }
-                drawTrajectory(unpacked);
-                if (pathManager.playerNear > 0)
-                    markPos(pathManager.path.get(pathManager.playerNear));
+    private void gotoTakeoff() {
+        TakeoffTargetFinder tff = new TakeoffTargetFinder(angleSolver, npf, bsu, pathManager);
+        CompletableFuture<List<BetterBlockPos>> pathFuture =
+                CompletableFuture.supplyAsync(() -> tff.findPath(new BetterBlockPos(MinecraftContext.player().getBlockPos())));
+        for (int i = 0; !pathFuture.isDone(); i++) {
+            if (i > 50)
+                throw new RuntimeException("计算起跳路径超时");
+            delay(1);
+        }
+        List<BetterBlockPos> path = pathFuture.join();
+        if (path == null || path.isEmpty())
+            throw new RuntimeException("没有合适的起跳点");
+        TrajectoryRenderer pathRenderer = TrajectoryRenderer.create(path.stream().map(BetterBlockPos::toCenterPos).toList());
 
-                TaskManager.delay(4);
-            }
-        });
+        try {
+            walkPath(path);
+        } finally {
+            pathRenderer.remove();
+        }
+    }
+
+    // 准备起飞
+    private void tryToTakeoff() {
+        if (!MinecraftContext.player().isOnGround()) {
+            jump();
+            return;
+        }
+
+        if (Math.abs(MinecraftContext.player().getVelocity().getX()) > 0.01 || Math.abs(MinecraftContext.player().getVelocity().getZ()) > 0.01)
+            return;
+
+        if (!MinecraftContext.world().getBlockState(MinecraftContext.player().getBlockPos().up(2)).isAir()) {
+            gotoTakeoff();
+            return;
+        }
+
+        CompletableFuture<AngleSolution> solutionFuture = new CompletableFuture<>();
+        pathManager.updatePlayerNear();
+
+
+        TaskManager.runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
+                .getEntityPos().add(0, 1, 0), Vec3d.ZERO, MinecraftContext.player()
+                .isInLava(), new FireworkBoost(null, 10)))), TickPhase.POST, 0);
+
+        delay(1);
+        for (int i = 0; i < 100 && !solutionFuture.isDone(); i++)
+            delay(1);
+        if (!solutionFuture.isDone()) {
+            msg.SendMsg("solve超时!", MsgLevel.error);
+            return;
+        }
+        if (solutionFuture.join() == null) {
+            gotoTakeoff();
+        } else {
+            takeoff();
+        }
+    }
+
+    public void run() {
+        TaskManager.build(pathManager::run).setName("elytra路径管理器").async().daemon().async().setPhase(TickPhase.POST).start();
+        while (pathManager.path.isEmpty()) {delay(1);}
 
         TimelinessCounter fireworkCoolDown = new TimelinessCounter(10);
-
-        BaritoneAPI.getProvider().getPrimaryBaritone().getGameEventHandler().registerEventListener(new AbstractGameEventListener() {
-            @Override
-            public void onReceivePacket(PacketEvent packetEvent) {
-                if (packetEvent.getPacket() instanceof PlayerPositionLookS2CPacket) {
-                    runDeferred(fireworkCoolDown::accumulate, false, 0);
-                }
-            }
-        });
         AtomicInteger minFireworkTicks = new AtomicInteger(10);
-        while (true) {
-            if (!MinecraftContext.player().isGliding()) {
+        BoxRenderer GoingToRenderer = BoxRenderer.create(BetterBlockPos.ORIGIN, 0xFF55FF55);
+
+        PacketListener SetbackListener = PacketListener.create(packet -> {
+            if (packet instanceof PlayerPositionLookS2CPacket)
+                runDeferred(fireworkCoolDown::accumulate, TickPhase.PRE, 0);
+        });
+
+        try {
+            while (true) {
+                if (paused) {
+                    delay(1);
+                    continue;
+                }
+
+                if (!MinecraftContext.player().isGliding()) {
+                    tryToTakeoff();
+                    delay(1);
+                    continue;
+                }
+
+                CompletableFuture<AngleSolution> solutionFuture = new CompletableFuture<>();
+                TaskManager.runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
+                        .getEntityPos(), MinecraftContext.player().getVelocity(), MinecraftContext.player()
+                        .isInLava(), new FireworkBoost(getFireworkTicksExisted(), minFireworkTicks.get())))), TickPhase.POST, 0);
+
                 delay(1);
-                continue;
+                for (int i = 0; i < 10 && !solutionFuture.isDone(); i++)
+                    delay(1);
+                if (!solutionFuture.isDone()) {
+                    msg.SendMsg("solve超时!", MsgLevel.error);
+                    continue;
+                }
+
+                AngleSolution solution = solutionFuture.join();
+                if (solution == null) {
+                    msg.SendMsg("解算失败!", MsgLevel.info);
+                    continue;
+                }
+                if (!solution.solvedPitch())
+                    msg.SendMsg("未解算出pitch", MsgLevel.debug);
+                SilentRotation.setRotation(solution.rotation().getYaw(), solution.rotation().getPitch());
+
+                fireworkTick(solution, minFireworkTicks, fireworkCoolDown);
+
+                if (solution.goingTo() != null)
+                    GoingToRenderer.update(new BetterBlockPos(BlockPos.ofFloored(solution.goingTo())), 0xFF55FF55);
             }
-
-            CompletableFuture<AngleSolution> solutionFuture = new CompletableFuture<>();
-            TaskManager.runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player().getEntityPos(), MinecraftContext.player().getVelocity(), MinecraftContext.player().isInLava(), new FireworkBoost(getFireworkTicksExisted(), minFireworkTicks.get())))), true, 0);
-
-            delay(1);
-            for (int i = 0; i < 10 && !solutionFuture.isDone(); i++)
-                delay(1);
-            if (!solutionFuture.isDone()) {
-                msg.SendMsg( "solve超时!", MsgLevel.error);
-                continue;
-            }
-
-            AngleSolution solution = solutionFuture.join();
-            if (solution == null) {
-                msg.SendMsg("解算失败!", MsgLevel.warning);
-                continue;
-            }
-            if (!solution.solvedPitch())
-                msg.SendMsg( "未解算出pitch", MsgLevel.warning);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getLookBehavior().updateTarget(solution.rotation(), false);
-
-
-            fireworkTick(solution, minFireworkTicks, fireworkCoolDown);
-
+        } finally {
+            SetbackListener.remove();
+            GoingToRenderer.remove();
         }
     }
 
@@ -128,12 +209,14 @@ public class ElytraTask {
                 return;
             Vec3d start = MinecraftContext.player().getEntityPos();
             boolean isNotOnDescend = MinecraftContext.player().getY() < solution.goingTo().y + 5;
-            double currentSpeed = new Vec3d(MinecraftContext.player().getVelocity().x, MinecraftContext.player().getY() <
-                                                                           solution.goingTo().y ? Math.max(0, MinecraftContext.player().getVelocity().y) : MinecraftContext.player().getVelocity().y, MinecraftContext.player().getVelocity().z).lengthSquared();
+            double currentSpeed = new Vec3d(MinecraftContext.player().getVelocity().x,
+                    MinecraftContext.player().getY() < solution.goingTo().y ? Math.max(0, MinecraftContext.player()
+                            .getVelocity().y) : MinecraftContext.player().getVelocity().y, MinecraftContext.player().getVelocity().z).lengthSquared();
 
             if (solution.forceUseFirework() || getAttachedFirework().isEmpty() && isNotOnDescend &&
                                                (MinecraftContext.player().getY() < solution.goingTo().y - 5 || start.distanceTo(new Vec3d(
-                                                       solution.goingTo().x + 0.5, MinecraftContext.player().getY(), solution.goingTo().z + 0.5)) > 5) &&
+                                                       solution.goingTo().x + 0.5, MinecraftContext.player().getY(), solution.goingTo().z + 0.5)) >
+                                                                                                               5) &&
                                                currentSpeed < elytraFireworkSpeed.get() * elytraFireworkSpeed.get()) {
                 fireworkCoolDown.accumulate();
                 int fireworkSlot = findItemInHotBar(Items.FIREWORK_ROCKET);
@@ -144,7 +227,7 @@ public class ElytraTask {
                         throw new IllegalStateException("缺少烟花");
                 }
                 int finalSlot = fireworkSlot;
-                int level = SupplyTask.getFireworkLevel(MinecraftContext.player().getInventory().getStack(fireworkSlot));
+                int level = 1;
                 runOnMain(() -> {
                     MinecraftContext.player().getInventory().setSelectedSlot(finalSlot);
                     MinecraftContext.networkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlot));
@@ -157,8 +240,8 @@ public class ElytraTask {
 
     private Optional<FireworkRocketEntity> getAttachedFirework() {
         return StreamSupport.stream(MinecraftContext.world().getEntities().spliterator(), false).filter(x -> x instanceof FireworkRocketEntity)
-                .filter(x -> Objects.equals(((IFireworkRocketEntity) x).getBoostedEntity(), MinecraftContext.player())).map(x -> (FireworkRocketEntity) x)
-                .findFirst();
+                .filter(x -> Objects.equals(getBoostedEntity((FireworkRocketEntity) x), MinecraftContext.player()))
+                .map(x -> (FireworkRocketEntity) x).findFirst();
     }
 
     private Integer getFireworkTicksExisted() {
@@ -190,10 +273,9 @@ public class ElytraTask {
         PlayerInventory inv = MinecraftContext.player().getInventory();
         for (int i = 0; i < 9; i++) {
             ItemStack s = inv.getStack(i);
-            if (s.isEmpty() ||
-                s.getItem() != Items.ENDER_CHEST && s.getItem() != Items.DIAMOND_PICKAXE && s.getItem() != Items.NETHERITE_PICKAXE &&
-                s.getItem() != Items.DIAMOND_SWORD && s.getItem() != Items.NETHERITE_SWORD && s.getItem() != FoodList[FoodIndex.get()] &&
-                s.getItem() != Items.TOTEM_OF_UNDYING)
+            if (s.isEmpty() || s.getItem() != Items.ENDER_CHEST && s.getItem() != Items.DIAMOND_PICKAXE && s.getItem() != Items.NETHERITE_PICKAXE &&
+                               s.getItem() != Items.DIAMOND_SWORD && s.getItem() != Items.NETHERITE_SWORD &&
+                               s.getItem() != FoodList[FoodIndex.get()] && s.getItem() != Items.TOTEM_OF_UNDYING)
                 replaceList.add(i);
         }
         if (replaceList.isEmpty())
@@ -211,6 +293,7 @@ public class ElytraTask {
                 continue;
             Item item = stack.getItem();
             if (item == Items.FIREWORK_ROCKET) {
+                c += stack.getCount();
                 if (replaceList.isEmpty())
                     break;
                 int slot = replaceList.removeFirst();
@@ -220,7 +303,6 @@ public class ElytraTask {
                     MinecraftContext.interactionManager().clickSlot(handler.syncId, slot + 36, 0, SlotActionType.PICKUP, MinecraftContext.player());
                     MinecraftContext.interactionManager().clickSlot(handler.syncId, finalI, 0, SlotActionType.PICKUP, MinecraftContext.player());
                 });
-                c += stack.getCount();
             }
         }
         runOnMain(handled::close);
@@ -229,5 +311,4 @@ public class ElytraTask {
             throw new IllegalStateException("没有烟花了");
 
     }
-
 }

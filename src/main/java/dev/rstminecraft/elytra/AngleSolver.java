@@ -1,9 +1,9 @@
 package dev.rstminecraft.elytra;
 
-import baritone.api.utils.Rotation;
-import baritone.api.utils.RotationUtils;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
-import dev.rstminecraft.utils.Pair;
+import dev.rstminecraft.RustClientCore.utils.Pair;
+import dev.rstminecraft.utils.Rotation;
+import dev.rstminecraft.utils.SilentRotation;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.floats.FloatIterator;
 import net.minecraft.util.hit.HitResult;
@@ -15,10 +15,12 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-import static dev.rstminecraft.utils.FastMath.fastCeil;
-import static dev.rstminecraft.utils.FastMath.fastFloor;
+import static dev.rstminecraft.RustClientCore.utils.FastMath.fastCeil;
+import static dev.rstminecraft.RustClientCore.utils.FastMath.fastFloor;
 
 public class AngleSolver {
+    private final static int[] radius = {2, 5};
+    private final static double[] interps = new double[]{1.0, 0.75, 0.5, 0.25};
     private final NetherPathfinderContext npf;
     private final PathManager pathManager;
     private final BlockStateUtils bsu;
@@ -42,7 +44,7 @@ public class AngleSolver {
         double motionY = motion.y;
         double motionZ = motion.z;
 
-        float pitchRadians = pitch * RotationUtils.DEG_TO_RAD_F;
+        float pitchRadians = pitch * 0.017453292F;
         double pitchBase2 = Math.sqrt(lookDirection.x * lookDirection.x + lookDirection.z * lookDirection.z);
         double flatMotion = Math.sqrt(motionX * motionX + motionZ * motionZ);
         double thisIsAlwaysOne = lookDirection.length();
@@ -87,84 +89,140 @@ public class AngleSolver {
         return pitchValues;
     }
 
+    public static List<Vec3d> getPointsOnPlane(Vec3d direction, double radius) {
+        // 1. 归一化方向向量
+        Vec3d v = direction.normalize();
+
+        // 2. 选择不共线的辅助向量
+        Vec3d helper = Math.abs(v.x) > 0.9 ? new Vec3d(0, 1, 0) : new Vec3d(1, 0, 0);
+
+        // 3. 构建垂面上的两个正交单位向量，并直接乘以半径
+        Vec3d ur = v.crossProduct(helper).normalize().multiply(radius);
+        Vec3d wr = v.crossProduct(ur).normalize().multiply(radius);
+
+        // 4. 直接利用正负组合 new 出 4 个点返回
+        List<Vec3d> points = new ArrayList<>(4);
+        points.add(ur);           // 点 0：( 1,  0) ->  ur
+        points.add(wr);           // 点 1：( 0,  1) ->  wr
+        points.add(ur.negate());  // 点 2：(-1,  0) -> -ur
+        points.add(wr.negate());  // 点 3：( 0, -1) -> -wr
+
+        return points;
+    }
+
+    public List<Pair<Vec3d, Integer>> defaultCandidatePoints(FireworkBoost firework, int relaxation, int targetPathPos) {
+
+        final int[] heights = firework.isBoosted() ? new int[]{20, 10, 5, 0} : new int[]{0};
+
+        NetherPath path = pathManager.path;
+        int playerNear = pathManager.playerNear;
+
+        final List<Pair<Vec3d, Integer>> candidates = new ArrayList<>();
+        for (int dy : heights) {
+            if (relaxation == 0 || targetPathPos == playerNear) {
+                candidates.add(new Pair<>(path.getVec(targetPathPos), dy));
+            } else if (relaxation == 1) {
+                for (double interp : interps) {
+                    final Vec3d dest =
+                            interp == 1.0 ? path.getVec(targetPathPos) : path.getVec(targetPathPos).multiply(interp)
+                                    .add(path.getVec(targetPathPos - 1).multiply(1.0 - interp));
+                    candidates.add(new Pair<>(dest, dy));
+                }
+            } else {
+                // Create a point along the segment every block
+                final Vec3d delta = path.getVec(targetPathPos).subtract(path.getVec(targetPathPos - 1));
+                final int steps = fastFloor(delta.length());
+                final Vec3d step = delta.normalize();
+                Vec3d stepped = path.getVec(targetPathPos);
+                for (int interp = 0; interp < steps; interp++) {
+                    candidates.add(new Pair<>(stepped, dy));
+                    for (int j : radius) {
+                        Vec3d finalStepped = stepped;
+                        getPointsOnPlane(delta, j).forEach(k -> candidates.add(new Pair<>(finalStepped.add(k), dy)));
+                    }
+                    stepped = stepped.subtract(step);
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+    public AngleSolution findSolutionInCandidate(Vec3d start, Vec3d motion, boolean ignoreLava, FireworkBoost firework, int relaxation,
+            List<Pair<Vec3d, Integer>> candidates, int currentPathPoint, float defaultPitch, boolean canUseFirework) {
+        NetherPath path = pathManager.path;
+
+        AngleSolution solution = null;
+
+        for (final Pair<Vec3d, Integer> candidate : candidates) {
+            final Integer augment = candidate.second();
+            Vec3d dest = candidate.first().add(0, augment, 0);
+
+            if (augment != 0) {
+                if (currentPathPoint + 2 >= path.size()) {
+                    continue;
+                }
+                if (start.distanceTo(dest) < 40) {
+                    if (!npf.raytrace(dest, path.getVec(currentPathPoint + 2).add(0, augment, 0)) ||
+                        !npf.raytrace(dest, path.getVec(currentPathPoint + 2))) {
+                        // aka: don't go upwards if doing so would prevent us from being able to see the next position **OR** the modified next position
+                        continue;
+                    }
+                } else {
+                    // but if it's far away, allow gaining altitude if we could lose it again by the time we get there
+                    if (!npf.raytrace(dest, path.getVec(currentPathPoint))) {
+                        continue;
+                    }
+                }
+            }
+
+            final Double growth = relaxation == 2 ? null : relaxation == 0 ? 0.4 : 0.2;
+
+            if (isHitBoxClear(start, dest, growth, ignoreLava)) {
+                // Yaw is trivial, just calculate the rotation required to face the destination
+                final float yaw = Rotation.calcRotationFromVec3d(start, dest).getYaw();
+
+                final Pair<Float, Boolean> pitch = solvePitch(start, dest, motion, relaxation, firework, ignoreLava, canUseFirework);
+                if (pitch == null) {
+                    solution = new AngleSolution(new Rotation(yaw, defaultPitch), null, false, false);
+                    continue;
+                }
+
+                // A solution was found with yaw AND pitch, so just immediately return it.
+                return new AngleSolution(new Rotation(yaw, pitch.first()), dest, true, pitch.second());
+            }
+        }
+
+        return solution;
+    }
+
     public AngleSolution solveAngle(Vec3d start, Vec3d motion, boolean ignoreLava, FireworkBoost firework) {
 
 
         AngleSolution solution = null;
+
+
         NetherPath path = pathManager.path;
         int playerNear = pathManager.playerNear;
 
+
+        Rotation rotate;
+        if (SilentRotation.isActive()) {
+            rotate = new Rotation(SilentRotation.getTargetYaw(), SilentRotation.getTargetPitch());
+        } else {
+            rotate = new Rotation(MinecraftContext.player().getYaw(), MinecraftContext.player().getPitch());
+        }
+
+
         for (int relaxation = 0; relaxation < 3; relaxation++) {
-            int[] heights = firework.isBoosted() ? new int[]{20, 10, 5, 0} : new int[]{0};
 
-            int lookahead = relaxation == 0 ? 2 : 3;
+            for (int i = Math.min(playerNear + (relaxation == 2 ? 5 : 20), path.size() - 1); i >= playerNear; i--) {
 
-
-            for (int i = Math.min(playerNear + 20, path.size() - 1); i >= playerNear; i--) {
-                final List<Pair<Vec3d, Integer>> candidates = new ArrayList<>();
-                for (int dy : heights) {
-                    if (relaxation == 0 || i == playerNear) {
-                        candidates.add(new Pair<>(path.getVec(i), dy));
-                    } else if (relaxation == 1) {
-                        final double[] interps = new double[]{1.0, 0.75, 0.5, 0.25};
-                        for (double interp : interps) {
-                            final Vec3d dest =
-                                    interp == 1.0 ? path.getVec(i) : path.getVec(i).multiply(interp).add(path.getVec(i - 1).multiply(1.0 - interp));
-                            candidates.add(new Pair<>(dest, dy));
-                        }
-                    } else {
-                        // Create a point along the segment every block
-                        final Vec3d delta = path.getVec(i).subtract(path.getVec(i - 1));
-                        final int steps = fastFloor(delta.length());
-                        final Vec3d step = delta.normalize();
-                        Vec3d stepped = path.getVec(i);
-                        for (int interp = 0; interp < steps; interp++) {
-                            candidates.add(new Pair<>(stepped, dy));
-                            stepped = stepped.subtract(step);
-                        }
-                    }
-                }
-
-                for (final Pair<Vec3d, Integer> candidate : candidates) {
-                    final Integer augment = candidate.second();
-                    Vec3d dest = candidate.first().add(0, augment, 0);
-
-                    if (augment != 0) {
-                        if (i + lookahead >= path.size()) {
-                            continue;
-                        }
-                        if (start.distanceTo(dest) < 40) {
-                            if (!npf.raytrace(dest, path.getVec(i + lookahead).add(0, augment, 0)) ||
-                                !npf.raytrace(dest, path.getVec(i + lookahead))) {
-                                // aka: don't go upwards if doing so would prevent us from being able to see the next position **OR** the modified next position
-                                continue;
-                            }
-                        } else {
-                            // but if it's far away, allow gaining altitude if we could lose it again by the time we get there
-                            if (!npf.raytrace(dest, path.getVec(i))) {
-                                continue;
-                            }
-                        }
-                    }
-
-                    final Double growth = relaxation == 2 ? null : relaxation == 0 ? 0.4 : 0.2;
-
-                    if (isHitBoxClear(start, dest, growth, ignoreLava)) {
-                        // Yaw is trivial, just calculate the rotation required to face the destination
-
-                        final float yaw = RotationUtils.calcRotationFromVec3d(start, dest, new Rotation(MinecraftContext.player().getYaw(),
-                                                                                                        MinecraftContext.player().getPitch())).getYaw();
-
-                        final Pair<Float, Boolean> pitch = solvePitch(start, dest, motion, relaxation, firework, ignoreLava);
-                        if (pitch == null) {
-                            solution = new AngleSolution(new Rotation(yaw, MinecraftContext.player().getPitch()), null, false, false);
-                            continue;
-                        }
-
-                        // A solution was found with yaw AND pitch, so just immediately return it.
-                        return new AngleSolution(new Rotation(yaw, pitch.first()), dest, true, pitch.second());
-                    }
-                }
+                final List<Pair<Vec3d, Integer>> candidates = defaultCandidatePoints(firework, relaxation, i);
+                solution = findSolutionInCandidate(start, motion, ignoreLava, firework, relaxation, candidates, i, rotate.getPitch(),
+                        relaxation == 2);
+                if (solution != null && solution.solvedPitch())
+                    return solution;
             }
         }
 
@@ -172,15 +230,15 @@ public class AngleSolver {
 
     }
 
-    private Pair<Float, Boolean> solvePitch(Vec3d start, Vec3d goal, Vec3d motion, final int relaxation, FireworkBoost firework, boolean ignoreLava) {
+    private Pair<Float, Boolean> solvePitch(Vec3d start, Vec3d goal, Vec3d motion, int relaxation, FireworkBoost firework, boolean ignoreLava,
+            boolean canUseFirework) {
         final boolean desperate = relaxation == 2;
-        final float goodPitch = RotationUtils.calcRotationFromVec3d(start, goal,
-                                                                    new Rotation(MinecraftContext.player().getYaw(), MinecraftContext.player().getPitch())).getPitch();
+        final float goodPitch = Rotation.calcRotationFromVec3d(start, goal).getPitch();
         final FloatArrayList pitches = pitchesToSolveFor(goodPitch, desperate);
 
         final IntTriFunction<PitchResult> solve = (ticks, ticksBoosted, ticksBoostDelay) -> solvePitch(start, goal, motion, relaxation,
-                                                                                                       pitches.iterator(), ticks, ticksBoosted,
-                                                                                                       ticksBoostDelay, ignoreLava);
+                pitches.iterator(), ticks, ticksBoosted,
+                ticksBoostDelay, ignoreLava);
 
         final List<IntTriple> tests = new ArrayList<>();
 
@@ -209,16 +267,10 @@ public class AngleSolver {
         }
 
         // If we used a firework would we be able to get out of the current situation??? perhaps
-        if (desperate) {
-            final List<IntTriple> testsBoost = new ArrayList<>();
-            testsBoost.add(new IntTriple(ticks, 10, 3));
-            testsBoost.add(new IntTriple(ticks, 10, 2));
-            testsBoost.add(new IntTriple(ticks, 10, 1));
-
-            final Optional<PitchResult> resultBoost = testsBoost.stream().map(i -> solve.apply(i.first, i.second, i.third)).filter(
-                    Objects::nonNull).findFirst();
-            if (resultBoost.isPresent()) {
-                return new Pair<>(resultBoost.get().pitch, true);
+        if (canUseFirework) {
+            PitchResult resultBoost = solve.apply(ticks, 10, 1);
+            if (resultBoost != null) {
+                return new Pair<>(resultBoost.pitch, true);
             }
         }
 
@@ -226,7 +278,7 @@ public class AngleSolver {
     }
 
     private PitchResult solvePitch(Vec3d start, Vec3d goal, Vec3d motion, final int relaxation, final FloatIterator pitches, final int ticks,
-                                   final int ticksBoosted, final int ticksBoostDelay, boolean ignoreLava) {
+            final int ticksBoosted, final int ticksBoostDelay, boolean ignoreLava) {
         // we are at a certain velocity, but we have a target velocity
         // what pitch would get us closest to our target velocity?
         // yaw is easy so we only care about pitch
@@ -236,15 +288,18 @@ public class AngleSolver {
 
         final Deque<PitchResult> bestResults = new ArrayDeque<>();
 
+        Box hitbox = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 0.6, start.z + 0.3);
+
         while (pitches.hasNext()) {
             final float pitch = pitches.nextFloat();
-            final List<Vec3d> displacement = simulate(motion, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay, ignoreLava);
+            final List<Vec3d> displacement = simulate(hitbox,motion, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay, ignoreLava, relaxation);
             if (displacement == null) {
                 continue;
             }
             final Vec3d last = displacement.getLast();
             double goodness = goalDirection.dotProduct(last.normalize());
             final PitchResult bestSoFar = bestResults.peek();
+
             if (bestSoFar == null || goodness > bestSoFar.dot) {
                 bestResults.push(new PitchResult(pitch, goodness, displacement));
             }
@@ -252,6 +307,7 @@ public class AngleSolver {
 
         outer:
         for (final PitchResult result : bestResults) {
+
             if (relaxation < 2) {
                 // Ensure that the goal is visible along the entire simulated path
                 // Reverse order iteration since the last position is most likely to fail
@@ -271,40 +327,78 @@ public class AngleSolver {
         return null;
     }
 
-    private List<Vec3d> simulate(Vec3d motion, Vec3d goalDelta, final float pitch, final int ticks, final int ticksBoosted, final int ticksBoostDelay,
-                                 boolean ignoreLava) {
+    private List<Vec3d> simulate(Box hitbox, Vec3d motion, Vec3d goalDelta, final float pitch, final int ticks, final int ticksBoosted,
+            final int ticksBoostDelay,
+            boolean ignoreLava, int relaxation) {
         Vec3d delta = goalDelta;
         List<Vec3d> displacement = new ArrayList<>(ticks + 1);
         displacement.add(Vec3d.ZERO);
         int remainingTicksBoosted = ticksBoosted;
 
-        Box hitbox = MinecraftContext.player().getBoundingBox();
         for (int i = 0; i < ticks; i++) {
             if (delta.lengthSquared() < 1) {
                 break;
             }
-            final Rotation rotation = RotationUtils.calcRotationFromVec3d(Vec3d.ZERO, delta,
-                                                                          new Rotation(MinecraftContext.player().getYaw(), MinecraftContext.player().getPitch()).withPitch(
-                                                                                  pitch));
-            final Vec3d lookDirection = RotationUtils.calcLookDirectionFromRotation(rotation);
+            final float yawToGoal = Rotation.calcRotationFromVec3d(Vec3d.ZERO, delta).getYaw();
+            final Vec3d lookDirection = Rotation.calcLookDirectionFromRotation(new Rotation(yawToGoal, pitch));
 
-            motion = step(motion, lookDirection, rotation.getPitch());
+            motion = step(motion, lookDirection, pitch);
             delta = delta.subtract(motion);
 
-            // Collision box while the player is in motion, with additional padding for safety
-            final Box inMotion = hitbox.expand(motion.x, motion.y, motion.z).expand(0.01);
+            if (relaxation == 2) {
+                final double mx = motion.x, my = motion.y, mz = motion.z;
+                final double[] src = new double[]{
+                        hitbox.minX, hitbox.minY, hitbox.minZ,
+                        hitbox.minX, hitbox.minY, hitbox.maxZ,
+                        hitbox.minX, hitbox.maxY, hitbox.minZ,
+                        hitbox.minX, hitbox.maxY, hitbox.maxZ,
+                        hitbox.maxX, hitbox.minY, hitbox.minZ,
+                        hitbox.maxX, hitbox.minY, hitbox.maxZ,
+                        hitbox.maxX, hitbox.maxY, hitbox.minZ,
+                        hitbox.maxX, hitbox.maxY, hitbox.maxZ,
+                };
+                final double[] dst = new double[]{
+                        hitbox.minX + mx, hitbox.minY + my, hitbox.minZ + mz,
+                        hitbox.minX + mx, hitbox.minY + my, hitbox.maxZ + mz,
+                        hitbox.minX + mx, hitbox.maxY + my, hitbox.minZ + mz,
+                        hitbox.minX + mx, hitbox.maxY + my, hitbox.maxZ + mz,
+                        hitbox.maxX + mx, hitbox.minY + my, hitbox.minZ + mz,
+                        hitbox.maxX + mx, hitbox.minY + my, hitbox.maxZ + mz,
+                        hitbox.maxX + mx, hitbox.maxY + my, hitbox.minZ + mz,
+                        hitbox.maxX + mx, hitbox.maxY + my, hitbox.maxZ + mz,
+                };
 
-            int x_min = fastFloor(inMotion.minX);
-            int x_max = fastCeil(inMotion.maxX);
-            int y_min = fastFloor(inMotion.minY);
-            int y_max = fastCeil(inMotion.maxY);
-            int z_min = fastFloor(inMotion.minZ);
-            int z_max = fastCeil(inMotion.maxZ);
-            for (int x = x_min; x < x_max; x++) {
-                for (int y = y_min; y < y_max; y++) {
-                    for (int z = z_min; z < z_max; z++) {
-                        if (!bsu.passable(x, y, z, ignoreLava)) {
+                if (!ignoreLava) {
+                    final boolean[] hits = new boolean[8];
+                    npf.raytrace(8, src, dst, hits, null);
+                    for (boolean hit : hits) {
+                        if (hit)
                             return null;
+                    }
+                } else {
+                    for (int j = 0; j < 8; j++) {
+                        if (hasObstacle(new Vec3d(src[j * 3], src[j * 3 + 1], src[j * 3 + 2]),
+                                new Vec3d(dst[j * 3], dst[j * 3 + 1], dst[j * 3 + 2]), true)) {
+                            return null;
+                        }
+                    }
+                }
+            } else {
+                // Collision box while the player is in motion, with additional padding for safety
+                final Box inMotion = hitbox.stretch(motion.x, motion.y, motion.z).expand(0.01);
+
+                int x_min = fastFloor(inMotion.minX);
+                int x_max = fastCeil(inMotion.maxX);
+                int y_min = fastFloor(inMotion.minY);
+                int y_max = fastCeil(inMotion.maxY);
+                int z_min = fastFloor(inMotion.minZ);
+                int z_max = fastCeil(inMotion.maxZ);
+                for (int x = x_min; x < x_max; x++) {
+                    for (int y = y_min; y < y_max; y++) {
+                        for (int z = z_min; z < z_max; z++) {
+                            if (!bsu.passable(x, y, z, ignoreLava)) {
+                                return null;
+                            }
                         }
                     }
                 }
@@ -316,8 +410,8 @@ public class AngleSolver {
             if (i >= ticksBoostDelay && remainingTicksBoosted-- > 0) {
                 // See EntityFireworkRocket
                 motion = motion.add(lookDirection.x * 0.1 + (lookDirection.x * 1.5 - motion.x) * 0.5,
-                                    lookDirection.y * 0.1 + (lookDirection.y * 1.5 - motion.y) * 0.5,
-                                    lookDirection.z * 0.1 + (lookDirection.z * 1.5 - motion.z) * 0.5);
+                        lookDirection.y * 0.1 + (lookDirection.y * 1.5 - motion.y) * 0.5,
+                        lookDirection.z * 0.1 + (lookDirection.z * 1.5 - motion.z) * 0.5);
             }
         }
 
@@ -325,14 +419,13 @@ public class AngleSolver {
     }
 
     private boolean isHitBoxClear(Vec3d start, Vec3d dest, Double growAmount, boolean ignoreLava) {
-
         if (hasObstacle(start, dest, ignoreLava))
             return false;
         if (growAmount == null) {
             return true;
         }
 
-        final Box bb = MinecraftContext.player().getBoundingBox().expand(growAmount);
+        final Box bb = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 0.6, start.z + 0.3);
 
         final double ox = dest.x - start.x;
         final double oy = dest.y - start.y;

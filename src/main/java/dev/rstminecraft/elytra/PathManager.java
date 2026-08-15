@@ -1,32 +1,37 @@
 package dev.rstminecraft.elytra;
 
-import baritone.api.BaritoneAPI;
-import baritone.api.event.events.BlockChangeEvent;
-import baritone.api.event.events.ChunkEvent;
-import baritone.api.event.listener.AbstractGameEventListener;
-import baritone.api.utils.BetterBlockPos;
 import dev.babbaj.pathfinder.PathSegment;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
+import dev.rstminecraft.RustClientCore.eventListener.ChunkListener;
+import dev.rstminecraft.RustClientCore.eventListener.PacketListener;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
+import dev.rstminecraft.RustClientCore.renderer.BoxRenderer;
+import dev.rstminecraft.RustClientCore.renderer.TrajectoryRenderer;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
+import dev.rstminecraft.RustClientCore.task.TickPhase;
+import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
+import dev.rstminecraft.RustClientCore.utils.Pair;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.ChunkDeltaUpdateS2CPacket;
+import net.minecraft.util.Colors;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.ChunkManager;
 import net.minecraft.world.chunk.WorldChunk;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.rstminecraft.RustClientCore.task.TaskManager.delay;
 import static dev.rstminecraft.RustElytraClient.msg;
+import static dev.rstminecraft.RustElytraClient.paused;
 
 public final class PathManager {
     private final @NotNull NetherPathfinderContext npf;
@@ -70,26 +75,55 @@ public final class PathManager {
         }
     }
 
-    public void run() {
-        AtomicReference<NetherPathfinderContext> npfRef = new AtomicReference<>(npf);
-        BaritoneAPI.getProvider().getPrimaryBaritone().getGameEventHandler().registerEventListener(new AbstractGameEventListener() {
-            @Override
-            public void onBlockChange(BlockChangeEvent blockChangeEvent) {
-                if (npfRef.get() == null)
-                    return;
-                npf.queueBlockUpdate(blockChangeEvent);
-            }
-
-            @Override
-            public void onChunkEvent(ChunkEvent event) {
-                if (npfRef.get() == null)
-                    return;
-                if (event.isPostPopulate()) {
-                    final WorldChunk chunk = MinecraftContext.world().getChunk(event.getX(), event.getZ());
-                    npf.queueForPacking(chunk);
+    private void flagFluidLava(BlockChangeEvent e) {
+        List<Pair<BlockPos, BlockState>> lavaUpdate = new ArrayList<>();
+        e.getBlocks().forEach(pair -> {
+            // 处理可能会下流的岩浆
+            if (pair.second().isOf(Blocks.LAVA) && MinecraftContext.world().getBlockState(pair.first().down()).isAir()) {
+                // 如果 Y 轴已经低于下界岩浆湖水面，避免处理岩浆湖
+                if (pair.first().getY() > 32) {
+                    BlockPos.Mutable mutablePos = pair.first().mutableCopy();
+                    while (mutablePos.getY() > 32) {
+                        mutablePos.move(Direction.DOWN);
+                        // 禁止NetherPathFinder在可能的岩浆流动地寻找路径
+                        if (MinecraftContext.world().getBlockState(mutablePos).isAir())
+                            lavaUpdate.add(new Pair<>(mutablePos.toImmutable(), Blocks.BARRIER.getDefaultState()));
+                        else
+                            break;
+                    }
                 }
             }
         });
+        if (!lavaUpdate.isEmpty())
+            npf.queueBlockUpdate(new BlockChangeEvent(e.getChunkPos(), lavaUpdate));
+    }
+
+    public void run() {
+        PacketListener BlockUpdateListener = PacketListener.create(packet -> {
+            if (packet instanceof BlockUpdateS2CPacket singleUpdate) {
+                Pair<BlockPos, BlockState> updatePos = new Pair<>(singleUpdate.getPos(),
+                        singleUpdate.getState());
+                BlockChangeEvent event = new BlockChangeEvent(new ChunkPos(updatePos.first()), List.of(updatePos));
+                npf.queueBlockUpdate(event);
+                flagFluidLava(event);
+            } else if (packet instanceof ChunkDeltaUpdateS2CPacket deltaUpdate) {
+                List<Pair<BlockPos, BlockState>> list = new ArrayList<>();
+                deltaUpdate.visitUpdates((pos, state) -> list.add(new Pair<>(pos, state)));
+                if (!list.isEmpty()) {
+                    BlockChangeEvent event = new BlockChangeEvent(new ChunkPos(list.getFirst().first()), list);
+                    npf.queueBlockUpdate(event);
+                    flagFluidLava(event);
+                }
+            }
+        });
+
+        ChunkListener ChunkPackListener = ChunkListener.create((chunk, type) -> {
+            if (type != ChunkListener.Type.LOAD)
+                return;
+            npf.queueForPacking(chunk);
+        });
+
+
         MinecraftContext.client().execute(this::repackChunks);
         CompletableFuture<PathSegment> pf = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), destination);
         while (!pf.isDone()) {
@@ -100,36 +134,43 @@ public final class PathManager {
         setPath(unpacked, ps.finished);
         delay(1);
 
-        Thread cullingThread = TaskManager.runTask(() -> {
+        TrajectoryRenderer trajectory = TrajectoryRenderer.create(path.stream().map(BlockPos::toCenterPos).toList());
+        BoxRenderer playerNearBox = BoxRenderer.create(BetterBlockPos.ORIGIN, Colors.RED);
+        TaskManager.build(() -> {
             while (true) {
                 MinecraftContext.client().execute(() -> msg.SendMsg("culling!", MsgLevel.info));
                 npf.queueCacheCulling(MinecraftContext.player().getChunkPos().x, MinecraftContext.player().getChunkPos().z, 5000, bsu);
                 delay(3600);
             }
-        }, "culling", true, false);
+        }).setPhase(TickPhase.POST).daemon().setName("path-culling").start();
 
         try {
             while (true) {
                 delay(1);
-                if (!doPathManagerTick)
+                if (!doPathManagerTick || paused)
                     continue;
 
 
                 synchronized (npf.cullingLock) {
                     updatePlayerNear();
+                    playerNearBox.update(path.get(playerNear), Colors.RED);
                     pathFindAroundObstacles();
 
                     int last = path.size() - 1;
                     if (!path.complete && MinecraftContext.world().isPosLoaded(path.get(last)))
                         pathNextSegment(last);
+
+                    trajectory.update(path.stream().map(BlockPos::toCenterPos).toList());
                 }
 
 
             }
         } finally {
-            npfRef.set(null);
-            cullingThread.interrupt();
+            BlockUpdateListener.remove();
+            ChunkPackListener.remove();
             npf.destroy();
+            trajectory.remove();
+            playerNearBox.remove();
         }
     }
 
@@ -150,6 +191,7 @@ public final class PathManager {
                 index = i; // intentional: this changes the bound of the loop
             }
         }
+
         for (int i = index; i >= Math.max(index - 50, 0); i--) {
             if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
                 index = i; // intentional: this changes the bound of the loop
@@ -160,6 +202,32 @@ public final class PathManager {
                 index = i; // intentional: this changes the bound of the loop
             }
         }
+
+        // Ensure the chosen point is visible from the player's position.
+        // If the geometrically closest point is behind a wall (e.g. path loops
+        // through a tunnel while the player flies above it), search forward
+        // for the first visible point, falling back to searching backward.
+        final Vec3d eyePos = MinecraftContext.player().getEyePos();
+        final Vec3d entityPos = MinecraftContext.player().getEntityPos();
+        if (!npf.raytrace(eyePos, path.getVec(index)) && !npf.raytrace(entityPos, path.getVec(index))) {
+            boolean found = false;
+            for (int i = index + 1; i < path.size(); i++) {
+                if (npf.raytrace(eyePos, path.getVec(i)) || npf.raytrace(entityPos, path.getVec(i))) {
+                    index = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                for (int i = index - 1; i >= 0; i--) {
+                    if (npf.raytrace(eyePos, path.getVec(i)) || npf.raytrace(entityPos, path.getVec(i))) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+        }
+
         playerNear = index;
     }
 
@@ -224,24 +292,21 @@ public final class PathManager {
     }
 
     private void setPath(final Stream<BetterBlockPos> segment, boolean complete) {
-        final List<BetterBlockPos> path = segment.collect(Collectors.toList());
+        final List<BetterBlockPos> path = segment.toList();
 
         // Remove backtracks
-        final Map<BetterBlockPos, Integer> positionFirstSeen = new HashMap<>();
+        Map<BetterBlockPos, Integer> positionLastSeen = new HashMap<>();
         for (int i = 0; i < path.size(); i++) {
+            positionLastSeen.put(path.get(i), i);
+        }
+        List<BetterBlockPos> cleanPath = new ArrayList<>();
+        for (int i = 0; i < path.size(); ) {
             BetterBlockPos pos = path.get(i);
-            if (positionFirstSeen.containsKey(pos)) {
-                int j = positionFirstSeen.get(pos);
-                while (i > j) {
-                    path.remove(i);
-                    i--;
-                }
-            } else {
-                positionFirstSeen.put(pos, i);
-            }
+            cleanPath.add(pos);
+            i = positionLastSeen.get(pos) + 1;
         }
 
-        this.path = new NetherPath(path, complete);
+        this.path = new NetherPath(cleanPath, complete);
         playerNear = 0;
     }
 

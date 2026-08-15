@@ -4,6 +4,7 @@ import baritone.api.BaritoneAPI;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
+import dev.rstminecraft.RustClientCore.task.TickPhase;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.projectile.FireballEntity;
@@ -79,16 +80,13 @@ class FireballProtect {
         MinecraftContext.player().setYaw(yaw);
         MinecraftContext.player().setPitch(pitch);
         msg.SendMsg("准备拦截火球！", MsgLevel.warning);
-        TaskManager.runTask(() -> {
-            TaskManager.delay(1);
-            TaskManager.runOnMain(() -> {
-                MinecraftContext.interactionManager().attackEntity(MinecraftContext.player(), fireball);
-                PlayerInteractEntityC2SPacket attackPacket = PlayerInteractEntityC2SPacket.attack(fireball,
-                        MinecraftContext.player().isSneaking());
-                MinecraftContext.networkHandler().sendPacket(attackPacket);
-                MinecraftContext.player().swingHand(Hand.MAIN_HAND);
-            });
-        });
+        TaskManager.runDeferred(() -> {
+            MinecraftContext.interactionManager().attackEntity(MinecraftContext.player(), fireball);
+            PlayerInteractEntityC2SPacket attackPacket = PlayerInteractEntityC2SPacket.attack(fireball,
+                    MinecraftContext.player().isSneaking());
+            MinecraftContext.networkHandler().sendPacket(attackPacket);
+            MinecraftContext.player().swingHand(Hand.MAIN_HAND);
+        }, TickPhase.POST, 1);
         return true;
     }
 }

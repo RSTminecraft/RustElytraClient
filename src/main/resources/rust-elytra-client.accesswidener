@@ -1,3 +1,8 @@
 accessWidener v2 named
 accessible class net/minecraft/world/chunk/PalettedContainer$Data
 accessible field net/minecraft/world/chunk/PalettedContainer data Lnet/minecraft/world/chunk/PalettedContainer$Data;
+
+accessible field net/minecraft/entity/projectile/FireworkRocketEntity shooter Lnet/minecraft/entity/LivingEntity;
+accessible field net/minecraft/entity/projectile/FireworkRocketEntity SHOOTER_ENTITY_ID Lnet/minecraft/entity/data/TrackedData;
+accessible method net/minecraft/entity/projectile/FireworkRocketEntity wasShotByEntity ()Z
+accessible field net/minecraft/client/option/KeyBinding boundKey Lnet/minecraft/client/util/InputUtil$Key;

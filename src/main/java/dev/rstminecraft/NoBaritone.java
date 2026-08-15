@@ -56,7 +56,6 @@ public class NoBaritone extends Screen {
             }
         }
 
-
     }
 
     @Override

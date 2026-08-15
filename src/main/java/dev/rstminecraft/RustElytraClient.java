@@ -11,9 +11,9 @@ import dev.rstminecraft.RustClientCore.ModConfig.IntConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.LongConfigEntry;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
+import dev.rstminecraft.RustClientCore.task.TickPhase;
 import dev.rstminecraft.elytra.ElytraTask;
-import dev.rstminecraft.utils.BaritoneControlChecker;
-import dev.rstminecraft.utils.TrajectoryRenderer;
+import dev.rstminecraft.utils.SilentRotation;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -74,8 +74,11 @@ public class RustElytraClient implements ClientModInitializer {
     public static @NotNull IntConfigEntry elytraFireworkSpeed = config.new IntConfigEntry("elytraFireworkSpeed",1);
     // endregion
 
+    public static ElytraTask et;
     // 信息发送器
     public static Messenger msg;
+
+    public static volatile boolean paused = false;
 
     @Override
     public void onInitializeClient() {
@@ -89,7 +92,6 @@ public class RustElytraClient implements ClientModInitializer {
         elytraDebugKey = KeyBindingHelper.registerKeyBinding(
                 new KeyBinding("RST Auto Elytra Mod无尽鞘翅调试按钮", InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), RST_CATEGORY));
 
-        TrajectoryRenderer.init();
         HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, Identifier.of("rust_elytra_client", "hud_layer"),
                                                (context, tickCounter) -> DrawHud(context));
 
@@ -117,7 +119,7 @@ public class RustElytraClient implements ClientModInitializer {
 
         // 自动开始飞行
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
-            BaritoneControlChecker.lookFlag = false;
+
             if (currentTick % 12 == 1 && client.player != null && (elytraDebugKey.isPressed() || ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
                                                                                                  client.interactionManager != null &&
                                                                                                  client.getNetworkHandler() != null &&
@@ -136,10 +138,23 @@ public class RustElytraClient implements ClientModInitializer {
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("rtest").executes(context -> {
-            ElytraTask et = new ElytraTask(new BlockPos(3750000,64,0));
-            TaskManager.runTask(et::run, "et", false, false);
+            et = new ElytraTask(new BlockPos(3750000,64,0));
+            TaskManager.build(et::run).setPhase(TickPhase.PRE).setName("elytra").start();
             return 1;
         })));
+
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("pause").executes(context -> {
+            paused = true;
+            return 1;
+        })));
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("resume").executes(context -> {
+            paused = false;
+            return 1;
+        })));
+
+        SilentRotation.init();
     }
 
     public enum ModStatuses {

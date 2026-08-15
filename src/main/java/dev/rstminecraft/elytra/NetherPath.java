@@ -17,7 +17,7 @@
 
 package dev.rstminecraft.elytra;
 
-import baritone.api.utils.BetterBlockPos;
+import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.AbstractList;
