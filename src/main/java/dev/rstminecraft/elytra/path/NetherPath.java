@@ -15,7 +15,7 @@
  * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package dev.rstminecraft.elytra;
+package dev.rstminecraft.elytra.path;
 
 import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
 import net.minecraft.util.math.Vec3d;

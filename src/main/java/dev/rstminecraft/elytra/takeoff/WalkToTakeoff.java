@@ -1,4 +1,4 @@
-package dev.rstminecraft.takeoff;
+package dev.rstminecraft.elytra.takeoff;
 
 import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;

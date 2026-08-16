@@ -5,11 +5,13 @@ import dev.rstminecraft.RustClientCore.listener.PacketListener;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.renderer.BoxRenderer;
 import dev.rstminecraft.RustClientCore.renderer.TrajectoryRenderer;
-import dev.rstminecraft.RustClientCore.task.TaskManager;
 import dev.rstminecraft.RustClientCore.task.TickPhase;
 import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
 import dev.rstminecraft.elytra.AngleSolver.FireworkBoost;
-import dev.rstminecraft.takeoff.TakeoffTargetFinder;
+import dev.rstminecraft.elytra.path.NetherPathfinderContext;
+import dev.rstminecraft.elytra.path.PathManager;
+import dev.rstminecraft.elytra.takeoff.TakeoffTargetFinder;
+import dev.rstminecraft.utils.Rotation;
 import dev.rstminecraft.utils.SilentRotation;
 import dev.rstminecraft.utils.TimelinessCounter;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
@@ -40,14 +42,15 @@ import java.util.stream.StreamSupport;
 
 import static dev.rstminecraft.RustClientCore.task.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
-import static dev.rstminecraft.takeoff.WalkToTakeoff.walkPath;
+import static dev.rstminecraft.elytra.ElytraLanding.LANDING_COLUMN_HEIGHT;
+import static dev.rstminecraft.elytra.takeoff.WalkToTakeoff.walkPath;
 
 public class ElytraTask {
 
     private final NetherPathfinderContext npf;
     private final BlockStateUtils bsu;
-    private final PathManager pathManager;
     private final AngleSolver angleSolver;
+    private PathManager pathManager;
 
     public ElytraTask(BlockPos destination) {
         npf = new NetherPathfinderContext(netherSeed.get());
@@ -70,7 +73,7 @@ public class ElytraTask {
 
     private void jump() {
         MinecraftContext.client().options.jumpKey.setPressed(true);
-        TaskManager.runDeferred(() -> MinecraftContext.client().options.jumpKey.setPressed(false), TickPhase.POST, 0);
+        runDeferred(() -> MinecraftContext.client().options.jumpKey.setPressed(false), TickPhase.POST, 0);
     }
 
     private void takeoff() {
@@ -87,7 +90,7 @@ public class ElytraTask {
 
     private void gotoTakeoff() {
         pathManager.doPathManagerTick = false;
-        pathManager.pathRecalculateSegment(Math.min(pathManager.path.size(),pathManager.playerNear + 20));
+        pathManager.pathRecalculateSegment(Math.min(pathManager.path.size(), pathManager.playerNear + 20));
         delay(1);
         TakeoffTargetFinder tff = new TakeoffTargetFinder(angleSolver, npf, bsu, pathManager);
         CompletableFuture<List<BetterBlockPos>> pathFuture =
@@ -117,24 +120,19 @@ public class ElytraTask {
             jump();
             return;
         }
-
         if (Math.abs(MinecraftContext.player().getVelocity().getX()) > 0.01 || Math.abs(MinecraftContext.player().getVelocity().getZ()) > 0.01)
             return;
-
         if (!MinecraftContext.world().getBlockState(MinecraftContext.player().getBlockPos().up(2)).isAir()) {
             gotoTakeoff();
             return;
         }
-
         CompletableFuture<AngleSolution> solutionFuture = new CompletableFuture<>();
         pathManager.updatePlayerNear();
-
-
-        TaskManager.runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
+        runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
                 .getEntityPos().add(0, 1, 0), Vec3d.ZERO, MinecraftContext.player()
                 .isInLava(), new FireworkBoost(null, 10)))), TickPhase.POST, 0);
-
         delay(1);
+
         for (int i = 0; i < 100 && !solutionFuture.isDone(); i++)
             delay(1);
         if (!solutionFuture.isDone()) {
@@ -149,7 +147,7 @@ public class ElytraTask {
     }
 
     public void run() {
-        TaskManager.build(pathManager::run).setName("elytra路径管理器").daemon().setPhase(TickPhase.PRE).start();
+        Thread pathManagerThread = build(pathManager::run).setName("elytra路径管理器").daemon().setPhase(TickPhase.PRE).start();
         while (pathManager.path.isEmpty()) {delay(1);}
 
         TimelinessCounter fireworkCoolDown = new TimelinessCounter(10);
@@ -160,6 +158,8 @@ public class ElytraTask {
             if (packet instanceof PlayerPositionLookS2CPacket)
                 runDeferred(fireworkCoolDown::accumulate, TickPhase.PRE, 0);
         });
+
+        BetterBlockPos landingSpot = null;
 
         try {
             while (true) {
@@ -175,7 +175,7 @@ public class ElytraTask {
                 }
 
                 CompletableFuture<AngleSolution> solutionFuture = new CompletableFuture<>();
-                TaskManager.runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
+                runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
                         .getEntityPos(), MinecraftContext.player().getVelocity(), MinecraftContext.player()
                         .isInLava(), new FireworkBoost(getFireworkTicksExisted(), minFireworkTicks.get())))), TickPhase.POST, 0);
 
@@ -200,10 +200,43 @@ public class ElytraTask {
 
                 if (solution.goingTo() != null)
                     GoingToRenderer.update(new BetterBlockPos(BlockPos.ofFloored(solution.goingTo())), 0xFF55FF55);
+
+                if (pathManager.path.complete) {
+                    BetterBlockPos last = pathManager.path.getLast();
+                    if (last != null && MinecraftContext.player().getEntityPos().squaredDistanceTo(last.toCenterPos()) < 48 * 48 &&
+                        landingSpot == null) {
+                        msg.SendMsg("准备着陆 寻找着陆位置", MsgLevel.warning);
+                        BetterBlockPos spot = ElytraLanding.findSafeLandingSpot(new BetterBlockPos(MinecraftContext.player().getBlockPos()));
+
+                        if (spot != null) {
+                            // 重新设置路径管理器
+                            pathManagerThread.interrupt();
+                            pathManager = new PathManager(spot, npf, bsu);
+                            pathManagerThread = build(pathManager::run).setName("elytra路径管理器").daemon().setPhase(TickPhase.PRE).start();
+                            while (pathManager.path.isEmpty()) {delay(1);}
+                            if (pathManager.path.getLast() == null || !npf.raytrace(pathManager.path.getLast().toCenterPos(), spot.toCenterPos())) {
+                                ElytraLanding.markBadLandingPos(spot);
+                                continue;
+                            }
+                            landingSpot = spot;
+                        }
+                    }
+
+                    if (last != null && landingSpot != null && MinecraftContext.player().getEntityPos().squaredDistanceTo(last.toCenterPos()) < 1) {
+                        if (landing(landingSpot)) {
+                            return;
+                        } else {
+                            msg.SendMsg("无效的降落点！准备寻找下一个",MsgLevel.warning);
+                            ElytraLanding.markBadLandingPos(landingSpot);
+                            landingSpot = null;
+                        }
+                    }
+                }
             }
         } finally {
             SetbackListener.remove();
             GoingToRenderer.remove();
+            npf.destroy();
         }
     }
 
@@ -316,4 +349,39 @@ public class ElytraTask {
             throw new IllegalStateException("没有烟花了");
 
     }
+
+    private boolean landing(BetterBlockPos landPos) {
+        msg.SendMsg("开始降落", MsgLevel.warning);
+        while (true) {
+            Vec3d from = MinecraftContext.player().getEntityPos();
+            Vec3d to = new Vec3d((double) landPos.x + 0.5, from.y, (double) landPos.z + 0.5);
+            Rotation rotation = Rotation.calcRotationFromVec3d(from, to);
+            SilentRotation.setRotation(rotation.getYaw(), 0);
+
+            if (MinecraftContext.player().getY() < landPos.y - LANDING_COLUMN_HEIGHT) {
+                return false;
+            }
+            delay(1);
+
+            if (!MinecraftContext.player().isGliding()) {
+                if (MinecraftContext.player().getBlockPos().isWithinDistance(landPos, 2))
+                    break;
+                else
+                    return false;
+            }
+        }
+        delay(1);
+
+        while (MinecraftContext.player().getVelocity().multiply(1, 0, 1).length() > 0.001) {
+            msg.SendMsg("已降落,但还在移动,请稍等", MsgLevel.info);
+            MinecraftContext.client().options.sneakKey.setPressed(true);
+            delay(1);
+        }
+        msg.SendMsg("降落完成 :)", MsgLevel.info);
+
+        return true;
+
+    }
+
+
 }

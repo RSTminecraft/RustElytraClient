@@ -1,8 +1,10 @@
-package dev.rstminecraft.elytra;
+package dev.rstminecraft.elytra.path;
 
 import dev.babbaj.pathfinder.NetherPathfinder;
 import dev.babbaj.pathfinder.Octree;
 import dev.babbaj.pathfinder.PathSegment;
+import dev.rstminecraft.elytra.BlockChangeEvent;
+import dev.rstminecraft.elytra.BlockStateUtils;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.util.collection.PaletteStorage;
@@ -30,7 +32,7 @@ public final class NetherPathfinderContext {
 
     public final Object cullingLock = new Object();
     public final long seed;
-    final long context;
+    public final long context;
     private final ExecutorService executor;
 
     public NetherPathfinderContext(long seed) {
@@ -93,7 +95,7 @@ public final class NetherPathfinderContext {
     public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateUtils boi) {
         executor.execute(() -> {
             synchronized (cullingLock) {
-                boi.chunkPtr = 0L;
+                boi.resetChunkPtr();
                 NetherPathfinder.cullFarChunks(context, chunkX, chunkZ, maxDistanceBlocks);
             }
         });

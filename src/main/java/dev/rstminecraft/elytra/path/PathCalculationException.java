@@ -1,4 +1,4 @@
-package dev.rstminecraft.elytra;
+package dev.rstminecraft.elytra.path;
 
 public final class PathCalculationException extends RuntimeException {
 

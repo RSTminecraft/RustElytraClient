@@ -2,6 +2,9 @@ package dev.rstminecraft.elytra;
 
 import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.utils.Pair;
+import dev.rstminecraft.elytra.path.NetherPath;
+import dev.rstminecraft.elytra.path.NetherPathfinderContext;
+import dev.rstminecraft.elytra.path.PathManager;
 import dev.rstminecraft.utils.Rotation;
 import dev.rstminecraft.utils.SilentRotation;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;

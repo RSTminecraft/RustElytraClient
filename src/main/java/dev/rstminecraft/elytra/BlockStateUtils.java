@@ -2,6 +2,7 @@ package dev.rstminecraft.elytra;
 
 import dev.babbaj.pathfinder.NetherPathfinder;
 import dev.babbaj.pathfinder.Octree;
+import dev.rstminecraft.elytra.path.NetherPathfinderContext;
 import net.minecraft.block.AirBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -28,6 +29,10 @@ public final class BlockStateUtils {
         contextPtr = context.context;
         this.world = world;
         provider = (ClientChunkManager) world.getChunkManager();
+    }
+
+    public void resetChunkPtr(){
+        chunkPtr = 0L;
     }
 
     public static BlockState getFromChunk(WorldChunk chunk, int x, int y, int z) {

@@ -1,13 +1,14 @@
-package dev.rstminecraft.takeoff;
+package dev.rstminecraft.elytra.takeoff;
 
 import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
 import dev.rstminecraft.RustClientCore.utils.Pair;
 import dev.rstminecraft.elytra.*;
+import dev.rstminecraft.elytra.path.NetherPathfinderContext;
+import dev.rstminecraft.elytra.path.PathManager;
 import dev.rstminecraft.utils.SilentRotation;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShapes;

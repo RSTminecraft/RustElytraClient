@@ -1,4 +1,4 @@
-package dev.rstminecraft.elytra;
+package dev.rstminecraft.elytra.path;
 
 import dev.babbaj.pathfinder.PathSegment;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
@@ -11,6 +11,8 @@ import dev.rstminecraft.RustClientCore.task.TaskManager;
 import dev.rstminecraft.RustClientCore.task.TickPhase;
 import dev.rstminecraft.RustClientCore.utils.BetterBlockPos;
 import dev.rstminecraft.RustClientCore.utils.Pair;
+import dev.rstminecraft.elytra.BlockChangeEvent;
+import dev.rstminecraft.elytra.BlockStateUtils;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
@@ -168,7 +170,6 @@ public final class PathManager {
         } finally {
             BlockUpdateListener.remove();
             ChunkPackListener.remove();
-            npf.destroy();
             trajectory.remove();
             playerNearBox.remove();
         }
