@@ -30,6 +30,19 @@ public final class BlockStateUtils {
         provider = (ClientChunkManager) world.getChunkManager();
     }
 
+    public static BlockState getFromChunk(WorldChunk chunk, int x, int y, int z) {
+        ChunkSection section = chunk.getSectionArray()[y >> 4];
+        if (section.isEmpty()) {
+            return AIR;
+        }
+        return section.getBlockState(x & 15, y & 15, z & 15);
+    }
+
+    static boolean isLava(BlockState state) {
+        Fluid f = state.getFluidState().getFluid();
+        return f == Fluids.LAVA || f == Fluids.FLOWING_LAVA;
+    }
+
     public boolean getFromOctree(final int x, final int y, final int z) {
         if ((y | 127 - y) < 0) {
             return false;
@@ -64,14 +77,6 @@ public final class BlockStateUtils {
         return AIR;
     }
 
-    public static BlockState getFromChunk(WorldChunk chunk, int x, int y, int z) {
-        ChunkSection section = chunk.getSectionArray()[y >> 4];
-        if (section.isEmpty()) {
-            return AIR;
-        }
-        return section.getBlockState(x & 15, y & 15, z & 15);
-    }
-
     public boolean passable(int x, int y, int z, boolean ignoreLava) {
         if (ignoreLava) {
             final BlockState state = getFromClient(x, y, z);
@@ -79,10 +84,5 @@ public final class BlockStateUtils {
         } else {
             return !getFromOctree(x, y, z);
         }
-    }
-
-    static boolean isLava(BlockState state) {
-        Fluid f = state.getFluidState().getFluid();
-        return f == Fluids.LAVA || f == Fluids.FLOWING_LAVA;
     }
 }

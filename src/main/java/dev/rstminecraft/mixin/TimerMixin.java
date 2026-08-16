@@ -18,7 +18,7 @@ public abstract class TimerMixin {
     /**
      * 目标方法: private int beginRenderTick(long timeMillis)
      * 注入点: 当 dynamicDeltaTicks 计算完毕并存入字段后，立即乘以倍率
-     * 目标字段: lastTimeMillis (1.21.8 中对应的字段名)
+     * 目标字段: lastTimeMillis (1.21.11 中对应的字段名)
      */
     @Inject(method = "beginRenderTick(J)I", at = @At(value = "FIELD", target = "Lnet/minecraft/client/render/RenderTickCounter$Dynamic;lastTimeMillis:J", opcode = Opcodes.PUTFIELD))
     private void onBeginRenderTick(long timeMillis, CallbackInfoReturnable<Integer> info) {

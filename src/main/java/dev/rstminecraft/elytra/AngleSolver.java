@@ -292,7 +292,7 @@ public class AngleSolver {
 
         while (pitches.hasNext()) {
             final float pitch = pitches.nextFloat();
-            final List<Vec3d> displacement = simulate(hitbox,motion, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay, ignoreLava, relaxation);
+            final List<Vec3d> displacement = simulate(hitbox, motion, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay, ignoreLava, relaxation);
             if (displacement == null) {
                 continue;
             }
@@ -345,60 +345,21 @@ public class AngleSolver {
             motion = step(motion, lookDirection, pitch);
             delta = delta.subtract(motion);
 
-            if (relaxation == 2) {
-                final double mx = motion.x, my = motion.y, mz = motion.z;
-                final double[] src = new double[]{
-                        hitbox.minX, hitbox.minY, hitbox.minZ,
-                        hitbox.minX, hitbox.minY, hitbox.maxZ,
-                        hitbox.minX, hitbox.maxY, hitbox.minZ,
-                        hitbox.minX, hitbox.maxY, hitbox.maxZ,
-                        hitbox.maxX, hitbox.minY, hitbox.minZ,
-                        hitbox.maxX, hitbox.minY, hitbox.maxZ,
-                        hitbox.maxX, hitbox.maxY, hitbox.minZ,
-                        hitbox.maxX, hitbox.maxY, hitbox.maxZ,
-                };
-                final double[] dst = new double[]{
-                        hitbox.minX + mx, hitbox.minY + my, hitbox.minZ + mz,
-                        hitbox.minX + mx, hitbox.minY + my, hitbox.maxZ + mz,
-                        hitbox.minX + mx, hitbox.maxY + my, hitbox.minZ + mz,
-                        hitbox.minX + mx, hitbox.maxY + my, hitbox.maxZ + mz,
-                        hitbox.maxX + mx, hitbox.minY + my, hitbox.minZ + mz,
-                        hitbox.maxX + mx, hitbox.minY + my, hitbox.maxZ + mz,
-                        hitbox.maxX + mx, hitbox.maxY + my, hitbox.minZ + mz,
-                        hitbox.maxX + mx, hitbox.maxY + my, hitbox.maxZ + mz,
-                };
 
-                if (!ignoreLava) {
-                    final boolean[] hits = new boolean[8];
-                    npf.raytrace(8, src, dst, hits, null);
-                    for (boolean hit : hits) {
-                        if (hit)
-                            return null;
-                    }
-                } else {
-                    for (int j = 0; j < 8; j++) {
-                        if (hasObstacle(new Vec3d(src[j * 3], src[j * 3 + 1], src[j * 3 + 2]),
-                                new Vec3d(dst[j * 3], dst[j * 3 + 1], dst[j * 3 + 2]), true)) {
-                            return null;
-                        }
-                    }
-                }
-            } else {
-                // Collision box while the player is in motion, with additional padding for safety
-                final Box inMotion = hitbox.stretch(motion.x, motion.y, motion.z).expand(0.01);
+            // Collision box while the player is in motion, with additional padding for safety
+            final Box inMotion = hitbox.stretch(motion.x, motion.y, motion.z).expand(0.01);
 
-                int x_min = fastFloor(inMotion.minX);
-                int x_max = fastCeil(inMotion.maxX);
-                int y_min = fastFloor(inMotion.minY);
-                int y_max = fastCeil(inMotion.maxY);
-                int z_min = fastFloor(inMotion.minZ);
-                int z_max = fastCeil(inMotion.maxZ);
-                for (int x = x_min; x < x_max; x++) {
-                    for (int y = y_min; y < y_max; y++) {
-                        for (int z = z_min; z < z_max; z++) {
-                            if (!bsu.passable(x, y, z, ignoreLava)) {
-                                return null;
-                            }
+            int x_min = fastFloor(inMotion.minX);
+            int x_max = fastCeil(inMotion.maxX);
+            int y_min = fastFloor(inMotion.minY);
+            int y_max = fastCeil(inMotion.maxY);
+            int z_min = fastFloor(inMotion.minZ);
+            int z_max = fastCeil(inMotion.maxZ);
+            for (int x = x_min; x < x_max; x++) {
+                for (int y = y_min; y < y_max; y++) {
+                    for (int z = z_min; z < z_max; z++) {
+                        if (!bsu.passable(x, y, z, ignoreLava)) {
+                            return null;
                         }
                     }
                 }

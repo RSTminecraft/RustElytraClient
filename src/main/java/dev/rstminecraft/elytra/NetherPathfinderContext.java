@@ -86,10 +86,6 @@ public final class NetherPathfinderContext {
         }
     }
 
-    public static boolean isSupported() {
-        return NetherPathfinder.isThisSystemSupported();
-    }
-
     public boolean hasChunk(ChunkPos pos) {
         return NetherPathfinder.hasChunkFromJava(context, pos.x, pos.z);
     }
@@ -146,22 +142,6 @@ public final class NetherPathfinderContext {
      * Performs a raytrace from the given start position to the given end position, returning {@code true} if there is
      * visibility between the two points.
      *
-     * @param startX The start X coordinate
-     * @param startY The start Y coordinate
-     * @param startZ The start Z coordinate
-     * @param endX   The end X coordinate
-     * @param endY   The end Y coordinate
-     * @param endZ   The end Z coordinate
-     * @return {@code true} if there is visibility between the points
-     */
-    private boolean raytrace(final double startX, final double startY, final double startZ, final double endX, final double endY, final double endZ) {
-        return NetherPathfinder.isVisible(context, NetherPathfinder.CACHE_MISS_SOLID, startX, startY, startZ, endX, endY, endZ);
-    }
-
-    /**
-     * Performs a raytrace from the given start position to the given end position, returning {@code true} if there is
-     * visibility between the two points.
-     *
      * @param start The starting point
      * @param end   The ending point
      * @return {@code true} if there is visibility between the points
@@ -179,10 +159,6 @@ public final class NetherPathfinderContext {
             case Visibility.ANY -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) != -1;
             default -> throw new IllegalArgumentException("lol");
         };
-    }
-
-    public void raytrace(final int count, final double[] src, final double[] dst, final boolean[] hitsOut, final double[] hitPosOut) {
-        NetherPathfinder.raytrace(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, hitsOut, hitPosOut);
     }
 
     public void cancel() {

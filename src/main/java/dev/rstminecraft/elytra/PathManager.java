@@ -2,8 +2,8 @@ package dev.rstminecraft.elytra;
 
 import dev.babbaj.pathfinder.PathSegment;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
-import dev.rstminecraft.RustClientCore.eventListener.ChunkListener;
-import dev.rstminecraft.RustClientCore.eventListener.PacketListener;
+import dev.rstminecraft.RustClientCore.listener.ChunkListener;
+import dev.rstminecraft.RustClientCore.listener.PacketListener;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.renderer.BoxRenderer;
 import dev.rstminecraft.RustClientCore.renderer.TrajectoryRenderer;
@@ -136,6 +136,7 @@ public final class PathManager {
 
         TrajectoryRenderer trajectory = TrajectoryRenderer.create(path.stream().map(BlockPos::toCenterPos).toList());
         BoxRenderer playerNearBox = BoxRenderer.create(BetterBlockPos.ORIGIN, Colors.RED);
+
         TaskManager.build(() -> {
             while (true) {
                 MinecraftContext.client().execute(() -> msg.SendMsg("culling!", MsgLevel.info));
@@ -149,7 +150,6 @@ public final class PathManager {
                 delay(1);
                 if (!doPathManagerTick || paused)
                     continue;
-
 
                 synchronized (npf.cullingLock) {
                     updatePlayerNear();
@@ -203,31 +203,6 @@ public final class PathManager {
             }
         }
 
-        // Ensure the chosen point is visible from the player's position.
-        // If the geometrically closest point is behind a wall (e.g. path loops
-        // through a tunnel while the player flies above it), search forward
-        // for the first visible point, falling back to searching backward.
-        final Vec3d eyePos = MinecraftContext.player().getEyePos();
-        final Vec3d entityPos = MinecraftContext.player().getEntityPos();
-        if (!npf.raytrace(eyePos, path.getVec(index)) && !npf.raytrace(entityPos, path.getVec(index))) {
-            boolean found = false;
-            for (int i = index + 1; i < path.size(); i++) {
-                if (npf.raytrace(eyePos, path.getVec(i)) || npf.raytrace(entityPos, path.getVec(i))) {
-                    index = i;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                for (int i = index - 1; i >= 0; i--) {
-                    if (npf.raytrace(eyePos, path.getVec(i)) || npf.raytrace(entityPos, path.getVec(i))) {
-                        index = i;
-                        break;
-                    }
-                }
-            }
-        }
-
         playerNear = index;
     }
 
@@ -236,7 +211,11 @@ public final class PathManager {
         final BetterBlockPos pathStart = path.get(afterIncl);
 
         try {
-            PathSegment segment = npf.pathFindAsync(pathStart, destination).get();
+            CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(pathStart,destination);
+            while (!segmentFuture.isDone()){
+                delay(1);
+            }
+            PathSegment segment = segmentFuture.get();
             Stream<BetterBlockPos> unpacked = Stream.concat(before.stream(),
                     Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong));
             MinecraftContext.client().execute(() -> setPath(unpacked, segment.finished));
@@ -314,7 +293,11 @@ public final class PathManager {
         final List<BetterBlockPos> after = path.subList(upToIncl + 1, path.size());
 
         try {
-            PathSegment segment = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), path.get(upToIncl)).get();
+            CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), path.get(upToIncl));
+            while (!segmentFuture.isDone()){
+                delay(1);
+            }
+            PathSegment segment = segmentFuture.get();
             Stream<BetterBlockPos> unpacked = Stream.concat(Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong),
                     after.stream());
             MinecraftContext.client().execute(() -> setPath(unpacked, path.complete));
@@ -329,7 +312,11 @@ public final class PathManager {
 
     public void pathRecalculateAll() {
         try {
-            PathSegment segment = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), destination).get();
+            CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), destination);
+            while (!segmentFuture.isDone()){
+                delay(1);
+            }
+            PathSegment segment = segmentFuture.get();
             Stream<BetterBlockPos> unpacked = Arrays.stream(segment.packed).mapToObj(BetterBlockPos::deserializeFromLong);
             MinecraftContext.client().execute(() -> setPath(unpacked, segment.finished));
         } catch (InterruptedException e) {

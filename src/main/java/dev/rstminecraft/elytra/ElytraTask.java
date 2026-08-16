@@ -1,7 +1,7 @@
 package dev.rstminecraft.elytra;
 
 import dev.rstminecraft.RustClientCore.MinecraftContext;
-import dev.rstminecraft.RustClientCore.eventListener.PacketListener;
+import dev.rstminecraft.RustClientCore.listener.PacketListener;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.renderer.BoxRenderer;
 import dev.rstminecraft.RustClientCore.renderer.TrajectoryRenderer;
@@ -86,6 +86,9 @@ public class ElytraTask {
     }
 
     private void gotoTakeoff() {
+        pathManager.doPathManagerTick = false;
+        pathManager.pathRecalculateSegment(Math.min(pathManager.path.size(),pathManager.playerNear + 20));
+        delay(1);
         TakeoffTargetFinder tff = new TakeoffTargetFinder(angleSolver, npf, bsu, pathManager);
         CompletableFuture<List<BetterBlockPos>> pathFuture =
                 CompletableFuture.supplyAsync(() -> tff.findPath(new BetterBlockPos(MinecraftContext.player().getBlockPos())));
@@ -104,6 +107,8 @@ public class ElytraTask {
         } finally {
             pathRenderer.remove();
         }
+
+        pathManager.doPathManagerTick = true;
     }
 
     // 准备起飞
@@ -144,7 +149,7 @@ public class ElytraTask {
     }
 
     public void run() {
-        TaskManager.build(pathManager::run).setName("elytra路径管理器").async().daemon().async().setPhase(TickPhase.POST).start();
+        TaskManager.build(pathManager::run).setName("elytra路径管理器").daemon().setPhase(TickPhase.PRE).start();
         while (pathManager.path.isEmpty()) {delay(1);}
 
         TimelinessCounter fireworkCoolDown = new TimelinessCounter(10);

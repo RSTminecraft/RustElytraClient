@@ -10,9 +10,6 @@
     "defaultRequire": 1
   },
   "client": [
-    "CameraMixin",
-    "FireworkRocketEntityMixin",
-    "HeldItemRendererMixin",
     "TimerMixin"
   ]
 }
