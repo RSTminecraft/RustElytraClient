@@ -153,17 +153,15 @@ public final class PathManager {
                 if (!doPathManagerTick || paused)
                     continue;
 
-                synchronized (npf.cullingLock) {
-                    updatePlayerNear();
-                    playerNearBox.update(path.get(playerNear), Colors.RED);
-                    pathFindAroundObstacles();
+                updatePlayerNear();
+                playerNearBox.update(path.get(playerNear), Colors.RED);
+                pathFindAroundObstacles();
 
-                    int last = path.size() - 1;
-                    if (!path.complete && MinecraftContext.world().isPosLoaded(path.get(last)))
-                        pathNextSegment(last);
+                int last = path.size() - 1;
+                if (!path.complete && MinecraftContext.world().isPosLoaded(path.get(last)))
+                    pathNextSegment(last);
 
-                    trajectory.update(path.stream().map(BlockPos::toCenterPos).toList());
-                }
+                trajectory.update(path.stream().map(BlockPos::toCenterPos).toList());
 
 
             }
@@ -212,8 +210,8 @@ public final class PathManager {
         final BetterBlockPos pathStart = path.get(afterIncl);
 
         try {
-            CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(pathStart,destination);
-            while (!segmentFuture.isDone()){
+            CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(pathStart, destination);
+            while (!segmentFuture.isDone()) {
                 delay(1);
             }
             PathSegment segment = segmentFuture.get();
@@ -295,7 +293,7 @@ public final class PathManager {
 
         try {
             CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), path.get(upToIncl));
-            while (!segmentFuture.isDone()){
+            while (!segmentFuture.isDone()) {
                 delay(1);
             }
             PathSegment segment = segmentFuture.get();
@@ -314,7 +312,7 @@ public final class PathManager {
     public void pathRecalculateAll() {
         try {
             CompletableFuture<PathSegment> segmentFuture = npf.pathFindAsync(MinecraftContext.player().getBlockPos(), destination);
-            while (!segmentFuture.isDone()){
+            while (!segmentFuture.isDone()) {
                 delay(1);
             }
             PathSegment segment = segmentFuture.get();

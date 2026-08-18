@@ -10,8 +10,10 @@ import net.minecraft.util.math.Vec3d;
 
 import java.util.List;
 
+import static dev.rstminecraft.FireballProtect.isHittingFireball;
 import static dev.rstminecraft.RustClientCore.task.TaskManager.delay;
 import static dev.rstminecraft.RustElytraClient.msg;
+import static dev.rstminecraft.RustElytraClient.paused;
 
 public class WalkToTakeoff {
 
@@ -59,9 +61,11 @@ public class WalkToTakeoff {
                 while (getChebyshevDistance(MinecraftContext.player().getEntityPos(), next.toBottomCenterPos()) >
                        (falling ? 1 : 0.2) && ticksWaited < maxTicks) {
                     delay(1);
+                    if(paused||isHittingFireball())
+                        continue;
                     ticksWaited++;
                     msg.SendMsg(next.toShortString()
-                                + " " + getChebyshevDistance(MinecraftContext.player().getEntityPos(), next.toBottomCenterPos()), MsgLevel.warning);
+                                + " " + getChebyshevDistance(MinecraftContext.player().getEntityPos(), next.toBottomCenterPos()), MsgLevel.debug);
 
                     dx = next.toBottomCenterPos().getX() - MinecraftContext.player().getX();
                     dz = next.toBottomCenterPos().getZ() - MinecraftContext.player().getZ();

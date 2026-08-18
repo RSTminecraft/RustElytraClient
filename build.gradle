@@ -93,10 +93,9 @@ tasks.named("remapSourcesJar") {
     def mcVersion = project.property("minecraft_version")
     def baseName = project.property("archives_base_name")
     def modVersion = project.property("mod_version")
-    def buildTime = new Date().format("yyMMdd_HHmm")
 
     archiveBaseName = "${mcVersion}/${baseName}-${mcVersion}"
-    archiveVersion = ("${modVersion}-${buildTime}")
+    archiveVersion = ("${modVersion}")
 }
 
 publishing {

@@ -1,6 +1,5 @@
 package dev.rstminecraft;
 
-import baritone.api.BaritoneAPI;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
@@ -19,7 +18,7 @@ import java.util.UUID;
 
 import static dev.rstminecraft.RustElytraClient.msg;
 
-class FireballProtect {
+public class FireballProtect {
     private static final HashSet<UUID> ignoreFireball = new HashSet<>();
     private static boolean flag = false;
 
@@ -28,7 +27,7 @@ class FireballProtect {
      *
      * @return 是否正在应对恶魂火球
      */
-    static boolean isHittingFireball() {
+    public static boolean isHittingFireball() {
         return flag;
     }
 
@@ -39,7 +38,7 @@ class FireballProtect {
      */
     private static List<FireballEntity> getNearbyFireball() {
         Vec3d playerPos = MinecraftContext.player().getEntityPos();
-        double Range = MinecraftContext.player().getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE) + 0.8;
+        double Range = MinecraftContext.player().getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE) + 1;
         Box detectionBox = new Box(playerPos.x - Range, playerPos.y - Range, playerPos.z - Range, playerPos.x + Range,
                 playerPos.y + Range, playerPos.z + Range);
         return MinecraftContext.world().getEntitiesByType(EntityType.FIREBALL, detectionBox, entity -> true);
@@ -56,7 +55,6 @@ class FireballProtect {
             if (flag) {
                 flag = false;
                 ignoreFireball.clear();
-                BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("r");
             }
             return true;
         }
@@ -66,7 +64,6 @@ class FireballProtect {
         FireballEntity fireball = l.getFirst();
         if (ignoreFireball.contains(fireball.getUuid()))
             return true;
-        BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("p");
         flag = true;
         ignoreFireball.add(fireball.getUuid());
         Vec3d target = fireball.getEntityPos().add(0, 0.5, 0);
@@ -86,7 +83,7 @@ class FireballProtect {
                     MinecraftContext.player().isSneaking());
             MinecraftContext.networkHandler().sendPacket(attackPacket);
             MinecraftContext.player().swingHand(Hand.MAIN_HAND);
-        }, TickPhase.POST, 1);
+        }, TickPhase.POST, 0);
         return true;
     }
 }

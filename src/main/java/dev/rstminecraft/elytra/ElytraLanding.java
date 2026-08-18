@@ -30,21 +30,51 @@ public class ElytraLanding {
         return isSafeBlock(MinecraftContext.world().getBlockState(pos).getBlock());
     }
 
-    private static boolean isAtEdge(BlockPos pos) {
-        return !isSafeBlock(pos.north())
-               || !isSafeBlock(pos.south())
-               || !isSafeBlock(pos.east())
-               || !isSafeBlock(pos.west())
-               // corners
-               || !isSafeBlock(pos.north().west())
-               || !isSafeBlock(pos.north().east())
-               || !isSafeBlock(pos.south().west())
-               || !isSafeBlock(pos.south().east());
+    private static boolean isAir(BlockPos pos) {
+        return MinecraftContext.world().getBlockState(pos).isAir();
     }
 
-    private static boolean isColumnAir(BlockPos landingSpot, int minHeight) {
+    private static boolean isAtEdge(BlockPos pos, BlockPos.Mutable mut) {
+        int baseX = pos.getX();
+        int baseY = pos.getY();
+        int baseZ = pos.getZ();
+
+        // 🚀 优化 1：先集中检查第 0 层（脚底下）。
+        // 在实际寻路中，脚下踩空（遇到非安全方块）导致失败的概率，远高于头顶撞墙。先检查这一层可以高概率提早退出。
+        for (int j = -1; j <= 1; j++) {
+            for (int k = -1; k <= 1; k++) {
+                mut.set(baseX + j, baseY, baseZ + k);
+                if (!isSafeBlock(mut)) {
+                    return true;
+                }
+            }
+        }
+
+        // 🚀 优化 2：再检查第 1 层和第 2 层（空气层）。
+        // 将 i 放在最内层，可以让利用同一个 (X, Z) 坐标连续读取 Y 和 Y+1，对 Minecraft 的世界区块缓存（Chunk Cache）更友好。
+        for (int j = -1; j <= 1; j++) {
+            int x = baseX + j;
+            for (int k = -1; k <= 1; k++) {
+                int z = baseZ + k;
+
+                // 检查第 1 层
+                mut.set(x, baseY + 1, z);
+                if (!isAir(mut))
+                    return true;
+
+                // 检查第 2 层
+                mut.set(x, baseY + 2, z);
+                if (!isAir(mut))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isColumnAir(BlockPos landingSpot) {
         BlockPos.Mutable mut = new BlockPos.Mutable(landingSpot.getX(), landingSpot.getY(), landingSpot.getZ());
-        final int maxY = mut.getY() + minHeight;
+        final int maxY = mut.getY() + ElytraLanding.LANDING_COLUMN_HEIGHT;
         for (int y = mut.getY() + 1; y <= maxY; y++) {
             mut.set(mut.getX(), y, mut.getZ());
             if (!MinecraftContext.world().getBlockState(mut).isAir()) {
@@ -73,6 +103,7 @@ public class ElytraLanding {
 
     private static BetterBlockPos checkLandingSpot(BlockPos pos, LongOpenHashSet checkedSpots) {
         BlockPos.Mutable mut = new BlockPos.Mutable(pos.getX(), pos.getY(), pos.getZ());
+        BlockPos.Mutable tmp = new BlockPos.Mutable();
         while (mut.getY() >= 0) {
             if (checkedSpots.contains(mut.asLong())) {
                 return null;
@@ -81,7 +112,7 @@ public class ElytraLanding {
             Block block = MinecraftContext.world().getBlockState(mut).getBlock();
 
             if (isSafeBlock(block)) {
-                if (!isAtEdge(mut)) {
+                if (!isAtEdge(mut, tmp)) {
                     return new BetterBlockPos(mut);
                 }
                 return null;
@@ -111,21 +142,24 @@ public class ElytraLanding {
 
         queue.add(start);
 
-        OUT:
         while (!queue.isEmpty()) {
             BetterBlockPos pos = queue.poll();
             if (MinecraftContext.world().isPosLoaded(pos) && isInBounds(pos) &&
                 MinecraftContext.world().getBlockState(pos).getBlock() == Blocks.AIR) {
                 BetterBlockPos actualLandingSpot = checkLandingSpot(pos, checkedPositions);
                 if (actualLandingSpot != null &&
-                    isColumnAir(actualLandingSpot, LANDING_COLUMN_HEIGHT) &&
+                    isColumnAir(actualLandingSpot) &&
                     hasAirBubble(actualLandingSpot.up(LANDING_COLUMN_HEIGHT)) &&
                     !badLandingSpots.contains(actualLandingSpot.up(LANDING_COLUMN_HEIGHT))) {
+                    boolean hasAny = false;
                     for (BetterBlockPos monsterPos : monsterBad) {
-                        if (actualLandingSpot.distanceSq(monsterPos) < 576)
-                            continue OUT;
+                        if (actualLandingSpot.distanceSq(monsterPos) < 576) {
+                            hasAny = true;
+                            break;
+                        }
                     }
-                    return actualLandingSpot.up(LANDING_COLUMN_HEIGHT);
+                    if (!hasAny)
+                        return actualLandingSpot.up(LANDING_COLUMN_HEIGHT);
                 }
                 if (visited.add(pos.north()))
                     queue.add(pos.north());

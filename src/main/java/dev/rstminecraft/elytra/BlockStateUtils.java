@@ -20,6 +20,7 @@ public final class BlockStateUtils {
     private final long contextPtr;
     private final ClientChunkManager provider;
     private final World world;
+    private final NetherPathfinderContext npf;
     transient long chunkPtr;
     private int prevChunkX = Integer.MAX_VALUE;
     private int prevChunkZ = Integer.MAX_VALUE;
@@ -27,12 +28,9 @@ public final class BlockStateUtils {
 
     public BlockStateUtils(final NetherPathfinderContext context, final World world) {
         contextPtr = context.context;
+        npf = context;
         this.world = world;
         provider = (ClientChunkManager) world.getChunkManager();
-    }
-
-    public void resetChunkPtr(){
-        chunkPtr = 0L;
     }
 
     public static BlockState getFromChunk(WorldChunk chunk, int x, int y, int z) {
@@ -48,18 +46,27 @@ public final class BlockStateUtils {
         return f == Fluids.LAVA || f == Fluids.FLOWING_LAVA;
     }
 
+    public void resetChunkPtr() {
+        chunkPtr = 0L;
+    }
+
     public boolean getFromOctree(final int x, final int y, final int z) {
-        if ((y | 127 - y) < 0) {
-            return false;
+        synchronized (npf.nativeLock) {
+            if ((y | 127 - y) < 0) {
+                return false;
+            }
+            final int chunkX = x >> 4;
+            final int chunkZ = z >> 4;
+            if (chunkPtr == 0 || (chunkX ^ prevChunkX | chunkZ ^ prevChunkZ) != 0) {
+                prevChunkX = chunkX;
+                prevChunkZ = chunkZ;
+                chunkPtr = NetherPathfinder.getOrCreateChunk(contextPtr, chunkX, chunkZ);
+            }
+            if (chunkPtr != 0)
+                return Octree.getBlock(chunkPtr, x & 0xF, y & 0x7F, z & 0xF);
+            else
+                return true;
         }
-        final int chunkX = x >> 4;
-        final int chunkZ = z >> 4;
-        if (chunkPtr == 0 || (chunkX ^ prevChunkX | chunkZ ^ prevChunkZ) != 0) {
-            prevChunkX = chunkX;
-            prevChunkZ = chunkZ;
-            chunkPtr = NetherPathfinder.getOrCreateChunk(contextPtr, chunkX, chunkZ);
-        }
-        return Octree.getBlock(chunkPtr, x & 0xF, y & 0x7F, z & 0xF);
     }
 
     public BlockState getFromClient(int x, int y, int z) {

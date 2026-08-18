@@ -12,11 +12,7 @@ public class ModHud {
             return;
         StringBuilder sb = new StringBuilder();
         sb.append("当前状态:");
-        switch (ModTask.type) {
-            case ELYTRA -> sb.append("鞘翅模式");
-            case EXP_BOTTLE -> sb.append("经验模式");
-            case INFINITY_ELYTRA -> sb.append("无尽鞘翅模式");
-        }
+        sb.append("无尽鞘翅模式");
         sb.append(",");
         switch (ModTask.status) {
             case START -> sb.append("任务正在启动");
@@ -26,12 +22,12 @@ public class ModHud {
             case LANDING -> sb.append("正在降落");
         }
         sb.append('\n');
-        sb.append("已飞行距离:").append(String.format("%.2f", ModTask.TaskFlyDistance(MinecraftContext.player()))).append('\n');
-        sb.append("剩余飞行距离:").append(String.format("%.2f", ModTask.TaskRemainDistance(MinecraftContext.player()))).append(
+        sb.append("已飞行距离:").append(String.format("%.2f", ModTask.TaskFlyDistance())).append('\n');
+        sb.append("剩余飞行距离:").append(String.format("%.2f", ModTask.TaskRemainDistance())).append(
                 '\n');
-        sb.append("平均飞行速度:").append(String.format("%.2f", ModTask.TaskAverageSpeed(MinecraftContext.player()))).append(
+        sb.append("平均飞行速度:").append(String.format("%.2f", ModTask.TaskAverageSpeed())).append(
                 " " + "m/s\n");
-        int second = (int) ModTask.TaskRemainSecond(MinecraftContext.player());
+        int second = (int) ModTask.TaskRemainSecond();
         int hour = second / 3600; // 得到分钟数
         second = second % 3600;//剩余的秒数
         int minute = second / 60;//得到分

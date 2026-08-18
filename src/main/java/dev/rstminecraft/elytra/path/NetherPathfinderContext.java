@@ -30,7 +30,7 @@ import static dev.rstminecraft.RustElytraClient.elytraPredictTerrain;
 public final class NetherPathfinderContext {
     private static final BlockState AIR_BLOCK_STATE = Blocks.AIR.getDefaultState();
 
-    public final Object cullingLock = new Object();
+    public final Object nativeLock = new Object();
     public final long seed;
     public final long context;
     private final ExecutorService executor;
@@ -44,7 +44,7 @@ public final class NetherPathfinderContext {
     private static void writeChunkData(WorldChunk chunk, long ptr) {
         try {
             ChunkSection[] chunkInternalStorageArray = chunk.getSectionArray();
-            for (int y0 = 0; y0 < Math.min(chunkInternalStorageArray.length, 24); y0++) {
+            for (int y0 = 0; y0 < 8; y0++) {
                 final ChunkSection extendedBlockStorage = chunkInternalStorageArray[y0];
                 if (extendedBlockStorage == null) {
                     continue;
@@ -89,12 +89,14 @@ public final class NetherPathfinderContext {
     }
 
     public boolean hasChunk(ChunkPos pos) {
-        return NetherPathfinder.hasChunkFromJava(context, pos.x, pos.z);
+        synchronized (nativeLock) {
+            return NetherPathfinder.hasChunkFromJava(context, pos.x, pos.z);
+        }
     }
 
     public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateUtils boi) {
         executor.execute(() -> {
-            synchronized (cullingLock) {
+            synchronized (nativeLock) {
                 boi.resetChunkPtr();
                 NetherPathfinder.cullFarChunks(context, chunkX, chunkZ, maxDistanceBlocks);
             }
@@ -104,39 +106,45 @@ public final class NetherPathfinderContext {
     public void queueForPacking(final WorldChunk chunkIn) {
         final SoftReference<WorldChunk> ref = new SoftReference<>(chunkIn);
         executor.execute(() -> {
-
-            final WorldChunk chunk = ref.get();
-            if (chunk != null) {
-                long ptr = NetherPathfinder.getOrCreateChunk(context, chunk.getPos().x, chunk.getPos().z);
-                writeChunkData(chunk, ptr);
+            synchronized (nativeLock) {
+                final WorldChunk chunk = ref.get();
+                if (chunk != null) {
+                    long ptr = NetherPathfinder.getOrCreateChunk(context, chunk.getPos().x, chunk.getPos().z);
+                    if (ptr != 0)
+                        writeChunkData(chunk, ptr);
+                }
             }
         });
     }
 
     public void queueBlockUpdate(BlockChangeEvent event) {
         executor.execute(() -> {
-            ChunkPos chunkPos = event.getChunkPos();
-            long ptr = NetherPathfinder.getChunkPointer(context, chunkPos.x, chunkPos.z);
-            if (ptr == 0)
-                return; // this shouldn't ever happen
-            event.getBlocks().forEach(pair -> {
-                BlockPos pos = pair.first();
-                if (pos.getY() >= 128)
-                    return;
-                boolean isSolid = pair.second() != AIR_BLOCK_STATE;
-                Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
-            });
+            synchronized (nativeLock) {
+                ChunkPos chunkPos = event.getChunkPos();
+                long ptr = NetherPathfinder.getChunkPointer(context, chunkPos.x, chunkPos.z);
+                if (ptr == 0)
+                    return; // this shouldn't ever happen
+                event.getBlocks().forEach(pair -> {
+                    BlockPos pos = pair.first();
+                    if (pos.getY() >= 128)
+                        return;
+                    boolean isSolid = pair.second() != AIR_BLOCK_STATE;
+                    Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
+                });
+            }
         });
     }
 
     public CompletableFuture<PathSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
         return CompletableFuture.supplyAsync(() -> {
-            final PathSegment segment = NetherPathfinder.pathFind(context, src.getX(), src.getY(), src.getZ(), dst.getX(), dst.getY(),
-                    dst.getZ(), true, false, 10000, !elytraPredictTerrain.get());
-            if (segment == null) {
-                throw new PathCalculationException("Path calculation failed");
+            synchronized (nativeLock) {
+                final PathSegment segment = NetherPathfinder.pathFind(context, src.getX(), src.getY(), src.getZ(), dst.getX(), dst.getY(),
+                        dst.getZ(), true, false, 10000, !elytraPredictTerrain.get());
+                if (segment == null) {
+                    throw new PathCalculationException("Path calculation failed");
+                }
+                return segment;
             }
-            return segment;
         }, executor);
     }
 
@@ -149,18 +157,22 @@ public final class NetherPathfinderContext {
      * @return {@code true} if there is visibility between the points
      */
     public boolean raytrace(final Vec3d start, final Vec3d end) {
-        if (start.equals(end))
-            return true;
-        return NetherPathfinder.isVisible(context, NetherPathfinder.CACHE_MISS_SOLID, start.x, start.y, start.z, end.x, end.y, end.z);
+        synchronized (nativeLock) {
+            if (start.equals(end))
+                return true;
+            return NetherPathfinder.isVisible(context, NetherPathfinder.CACHE_MISS_SOLID, start.x, start.y, start.z, end.x, end.y, end.z);
+        }
     }
 
     public boolean raytrace(final int count, final double[] src, final double[] dst, final int visibility) {
-        return switch (visibility) {
-            case Visibility.ALL -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, false) == -1;
-            case Visibility.NONE -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) == -1;
-            case Visibility.ANY -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) != -1;
-            default -> throw new IllegalArgumentException("lol");
-        };
+        synchronized (nativeLock) {
+            return switch (visibility) {
+                case Visibility.ALL -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, false) == -1;
+                case Visibility.NONE -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) == -1;
+                case Visibility.ANY -> NetherPathfinder.isVisibleMulti(context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, true) != -1;
+                default -> throw new IllegalArgumentException("lol");
+            };
+        }
     }
 
     public void cancel() {
@@ -168,18 +180,20 @@ public final class NetherPathfinderContext {
     }
 
     public void destroy() {
-        cancel();
-        // Ignore anything that was queued up, just shutdown the executor
-        executor.shutdownNow();
+        synchronized (nativeLock) {
+            cancel();
+            // Ignore anything that was queued up, just shutdown the executor
+            executor.shutdownNow();
 
-        try {
-            while (!executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+            try {
+                while (!executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
 
-        NetherPathfinder.freeContext(context);
+            NetherPathfinder.freeContext(context);
+        }
     }
 
 

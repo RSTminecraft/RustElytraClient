@@ -4,17 +4,19 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组主文件。
 
-import dev.rstminecraft.RustClientCore.messenger.Messenger;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import dev.rstminecraft.RustClientCore.ModConfig;
 import dev.rstminecraft.RustClientCore.ModConfig.BoolConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.IntConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.LongConfigEntry;
+import dev.rstminecraft.RustClientCore.messenger.Messenger;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
 import dev.rstminecraft.RustClientCore.task.TickPhase;
 import dev.rstminecraft.elytra.ElytraTask;
 import dev.rstminecraft.utils.SilentRotation;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -26,15 +28,12 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Objects;
 
 import static dev.rstminecraft.ModHud.DrawHud;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
@@ -71,7 +70,7 @@ public class RustElytraClient implements ClientModInitializer {
     public static @NotNull BoolConfigEntry enableHud = config.new BoolConfigEntry("enableHud", true);
     public static @NotNull BoolConfigEntry elytraPredictTerrain = config.new BoolConfigEntry("elytraPredictTerrain", true);
     public static @NotNull LongConfigEntry netherSeed = config.new LongConfigEntry("netherSeed", -7346913998703726680L /* 3c3u种子作为默认 */);
-    public static @NotNull IntConfigEntry elytraFireworkSpeed = config.new IntConfigEntry("elytraFireworkSpeed",1);
+    public static @NotNull IntConfigEntry elytraFireworkSpeed = config.new IntConfigEntry("elytraFireworkSpeed", 1);
     // endregion
 
     public static ElytraTask et;
@@ -93,43 +92,15 @@ public class RustElytraClient implements ClientModInitializer {
                 new KeyBinding("RST Auto Elytra Mod无尽鞘翅调试按钮", InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), RST_CATEGORY));
 
         HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, Identifier.of("rust_elytra_client", "hud_layer"),
-                                               (context, tickCounter) -> DrawHud(context));
+                (context, tickCounter) -> DrawHud(context));
 
         // tick末事件注册
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             currentTick++;
             if (client.player != null && openCustomScreenKey.isPressed())
                 client.setScreen(new RSTScr(client.currentScreen));
-
-            // 自动重装鞘翅，避免鞘翅耐久损耗（无尽鞘翅模式）
-            if (currentTick % 12 == 0 && client.player != null && (elytraDebugKey.isPressed() ||
-                                                                   ModTask.type == ModTask.TaskType.INFINITY_ELYTRA && client.player.isGliding() &&
-                                                                   client.interactionManager != null && client.getNetworkHandler() != null &&
-                                                                   (ModTask.status == ModTask.TaskStatus.LANDING ||
-                                                                    ModTask.status == ModTask.TaskStatus.FLYING))) {
-                fixEyeHeight = true;
-                client.player.stopGliding();
-                Objects.requireNonNull(client.getNetworkHandler()).sendPacket(
-                        new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
-            }
-            if (currentTick % 12 == 3)
-                fixEyeHeight = false;
         });
 
-
-        // 自动开始飞行
-        ClientTickEvents.START_CLIENT_TICK.register(client -> {
-
-            if (currentTick % 12 == 1 && client.player != null && (elytraDebugKey.isPressed() || ModTask.type == ModTask.TaskType.INFINITY_ELYTRA &&
-                                                                                                 client.interactionManager != null &&
-                                                                                                 client.getNetworkHandler() != null &&
-                                                                                                 (ModTask.status == ModTask.TaskStatus.LANDING ||
-                                                                                                  ModTask.status == ModTask.TaskStatus.FLYING))) {
-                client.player.startGliding();
-                Objects.requireNonNull(client.getNetworkHandler()).sendPacket(
-                        new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
-            }
-        });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             if (ModStatus != ModStatuses.idle) {
@@ -137,11 +108,16 @@ public class RustElytraClient implements ClientModInitializer {
             }
         });
 
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("rtest").executes(context -> {
-            et = new ElytraTask(new BlockPos(3750000,64,0));
-            TaskManager.build(et::run).setPhase(TickPhase.PRE).setName("elytra").start();
-            return 1;
-        })));
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("rtest")
+                .then(ClientCommandManager.argument("x", IntegerArgumentType.integer())
+                        .then(ClientCommandManager.argument("z", IntegerArgumentType.integer())
+                                .executes(context -> {
+                                    int targetX = IntegerArgumentType.getInteger(context, "x");
+                                    int targetZ = IntegerArgumentType.getInteger(context, "z");
+                                    et = new ElytraTask(new BlockPos(targetX, 64, targetZ));
+                                    TaskManager.build(et::run).setPhase(TickPhase.PRE).setName("elytra").start();
+                                    return 1;
+                                })))));
 
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("pause").executes(context -> {

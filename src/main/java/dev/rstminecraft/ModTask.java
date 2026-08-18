@@ -1,10 +1,11 @@
 package dev.rstminecraft;
 
-import baritone.api.BaritoneAPI;
+import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
+import dev.rstminecraft.RustClientCore.task.TickPhase;
+import dev.rstminecraft.elytra.ElytraTask;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.s2c.common.DisconnectS2CPacket;
 import net.minecraft.text.MutableText;
@@ -12,13 +13,14 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 
-//import static dev.rstminecraft.ElytraTask.elytraTask;
-import static dev.rstminecraft.FireballProtect.FireballProtector;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static dev.rstminecraft.RustElytraClient.*;
+import static dev.rstminecraft.SupplyTask.supplyTask;
 //import static dev.rstminecraft.SupplyTask.supplyTask;
 
 public class ModTask {
-    public static TaskType type;
     public static volatile @NotNull TaskStatus status = TaskStatus.NO_TASK;
     private static int TargetX, TargetZ;
     private static boolean isAutoLog, isAutoLogOnSeg1;
@@ -30,49 +32,45 @@ public class ModTask {
     /**
      * 统计剩余距离
      *
-     * @param player 非空玩家对象
      * @return 剩余距离
      */
-    public static double TaskRemainDistance(@NotNull ClientPlayerEntity player) {
+    public static double TaskRemainDistance() {
         if (status == TaskStatus.NO_TASK)
             return -1;
-        return Math.sqrt(new BlockPos(TargetX, 0, TargetZ).getSquaredDistance(player.getBlockPos()));
+        return Math.sqrt(new BlockPos(TargetX, 0, TargetZ).getSquaredDistance(MinecraftContext.player().getBlockPos()));
     }
 
     /**
      * 统计已飞行距离
      *
-     * @param player 非空玩家对象
      * @return 已飞行距离
      */
-    public static double TaskFlyDistance(@NotNull ClientPlayerEntity player) {
+    public static double TaskFlyDistance() {
         if (status == TaskStatus.NO_TASK)
             return -1;
-        return Math.sqrt(StartPos.getSquaredDistance(player.getBlockPos()));
+        return Math.sqrt(StartPos.getSquaredDistance(MinecraftContext.player().getBlockPos()));
     }
 
     /**
      * 统计平均速度
      *
-     * @param player 非空玩家对象
      * @return 平均速度
      */
-    public static double TaskAverageSpeed(@NotNull ClientPlayerEntity player) {
+    public static double TaskAverageSpeed() {
         if (status == TaskStatus.NO_TASK)
             return -1;
-        return TaskFlyDistance(player) / (currentTick - startTick) * 20;
+        return TaskFlyDistance() / (currentTick - startTick) * 20;
     }
 
     /**
      * 统计剩余时间
      *
-     * @param player 非空玩家对象
      * @return 剩余时间
      */
-    public static double TaskRemainSecond(@NotNull ClientPlayerEntity player) {
+    public static double TaskRemainSecond() {
         if (status == TaskStatus.NO_TASK)
             return -1;
-        return TaskRemainDistance(player) / TaskAverageSpeed(player);
+        return TaskRemainDistance() / TaskAverageSpeed();
     }
 
     // endregion
@@ -85,39 +83,29 @@ public class ModTask {
         timerMultiplier = 1f;
     }
 
-    private static void resetClient(@NotNull MinecraftClient client) {
-        client.options.forwardKey.setPressed(false);
-        client.options.jumpKey.setPressed(false);
-        client.options.useKey.setPressed(false);
-
-
-        if (BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().isActive() ||
-            BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive()) {
-            if (client.isOnThread())
-                BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
-            else
-                TaskManager.runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
-        }
+    private static void resetClient() {
+        MinecraftContext.client().options.forwardKey.setPressed(false);
+        MinecraftContext.client().options.jumpKey.setPressed(false);
+        MinecraftContext.client().options.useKey.setPressed(false);
     }
 
     /**
      * 开启模组任务
      *
-     * @param type            任务补给类型
      * @param isAutoLog       是否自动退出
      * @param isAutoLogOnSeg1 是否在第一段自动退出
      * @param TargetX         目的地X坐标
      * @param TargetZ         目的地Z坐标
      */
-    public static void startTask(TaskType type, boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ) {
+    public static void startTask(boolean isAutoLog, boolean isAutoLogOnSeg1, int TargetX, int TargetZ) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null)
             return;
         if (client.player == null)
-            taskFailed(client, "player为null!", -1);
+            taskFailed("player为null!", -1);
         if (status != TaskStatus.NO_TASK)
-            taskFailed(client, "不能同时存在2个飞行任务!", -1);
-        ModTask.type = type;
+            taskFailed("不能同时存在2个飞行任务!", -1);
+
         ModTask.isAutoLog = isAutoLog;
         ModTask.isAutoLogOnSeg1 = isAutoLogOnSeg1;
         ModTask.TargetX = TargetX;
@@ -128,135 +116,139 @@ public class ModTask {
         status = TaskStatus.START;
 
         resetMixin();
-        resetClient(client);
-//        Thread modMainTask = TaskManager.runTask(() -> runTask(client), "Rust Elytra主任务", true, false);
+        resetClient();
 
 
         ModStatus = ModStatuses.running;
 
-//        TaskManager.runTask(() -> {
-//            while (ModStatus != ModStatuses.idle) {
-//                if (ModStatus == ModStatuses.canceled) {
-//                    msg.SendMsg("任务中止", MsgLevel.fatal);
-//                    modMainTask.interrupt();
-//
-//                    resetMixin();
-//                    resetClient(client);
-//
-//                    status = TaskStatus.NO_TASK;
-//                    ModStatus = ModStatuses.idle;
-//                    return;
-//                }
-//                TaskManager.delay(1);
-//            }
-//        }, "Rust Elytra暂停守护任务", true, false);
+        Thread modMainTask = TaskManager.build(ModTask::runTask).setPhase(TickPhase.PRE).atEnd(() -> {
+            resetMixin();
+            resetClient();
+
+            status = TaskStatus.NO_TASK;
+            ModStatus = ModStatuses.idle;
+        }).start();
+
+        TaskManager.build(() -> {
+            while (ModStatus != ModStatuses.idle) {
+                if (ModStatus == ModStatuses.canceled) {
+                    msg.SendMsg("任务中止", MsgLevel.fatal);
+                    modMainTask.interrupt();
+                    return;
+                }
+                TaskManager.delay(1);
+            }
+        }).setPhase(TickPhase.POST).start();
     }
 
-    private static void runTask(@NotNull MinecraftClient client) {
-//
-//        if (client.player == null) {
-//            taskFailed(client, "player为null!", -1);
-//            return;
-//        }
-//
-//
-//        for (int nowSeg = 0; ; nowSeg++) {
-//            int finalNowSeg = nowSeg;
-//
-//            // region 补给任务
-//            msg.SendMsg("第" + nowSeg + "段补给任务开始！", MsgLevel.info);
-//
-//            // 开启补给保护任务
-//            Thread SupplyProtectThread = TaskManager.runTask(() -> SupplyTaskProtector(client, finalNowSeg), "Rust Elytra 补给保护任务", true, false);
-//
-//            // 开启补给任务
-//            try {
-//                supplyTask(client, type);
-//            } catch (TaskException e) {
-//                // 补给失败
-//                e.printStackTrace();
-//                msg.SendMsg(e.getMessage(), MsgLevel.error);
-//                msg.SendMsg("补给任务失败", MsgLevel.fatal);
-//                taskFailed(client, "补给任务失败！自动退出！", nowSeg - 1);
-//                break;
-//            } finally {
-//                // 关闭保护任务
-//                SupplyProtectThread.interrupt();
-//            }
-//
-//            TaskManager.delay(1);
-//            // endregion
-//
-//            // region 飞行任务
-//            msg.SendMsg("第" + nowSeg + "段飞行任务开始！", MsgLevel.info);
-//
-//            // 开启鞘翅保护任务
-//            Thread ElytraProtectThread = TaskManager.runTask(() -> ElytraTaskProtector(client, finalNowSeg), "Rust Elytra 鞘翅保护任务", true, false);
-//            // 开启鞘翅任务
-//            try {
-//                if (elytraTask(client, TargetX, TargetZ, type)) {
-//                    msg.SendMsg("到达目的地！圆满完成！！！", MsgLevel.warning);
-//                    if (isAutoLog) {
-//                        MutableText text = Text.literal("[RSTAutoLog] ");
-//                        text.append(Text.literal("已经到达目的地"));
-//                        client.player.networkHandler.onDisconnect(new DisconnectS2CPacket(text));
-//                    }
-//                    ModStatus = ModStatuses.idle;
-//                    break;
-//                }
-//            } catch (TaskException e) {
-//                // 飞行失败
-//                msg.SendMsg(e.getMessage(), MsgLevel.error);
-//                e.printStackTrace();
-//                taskFailed(client, e.getMessage(), nowSeg);
-//                break;
-//            } finally {
-//                // 关闭保护任务
-//                ElytraProtectThread.interrupt();
-//            }
-//
-//            TaskManager.delay(1);
-//            // endregion
-//        }
-//
-//        resetMixin();
-//        resetClient(client);
-//        status = TaskStatus.NO_TASK;
-//
-//    }
-//
-//    private static void SupplyTaskProtector(@NotNull MinecraftClient client, int nowSeg) {
-//        if (client.player == null)
-//            return;
-//        float h = client.player.getHealth();
-//        while (true) {
-//            if (!TaskManager.computeOnMain(FireballProtect::FireballProtector)) {
-//                ModStatus = ModStatuses.canceled;
-//                taskFailed(client, "无法拦截火球！自动退出！", nowSeg - 1);
-//                return;
-//            }
-//            if (client.player.getHealth() < h) {
-//                ModStatus = ModStatuses.canceled;
-//                taskFailed(client, "补给过程受伤！紧急！", nowSeg - 1);
-//                return;
-//            }
-//            TaskManager.delay(1);
-//        }
+    private static void runTask() {
+
+
+        for (int nowSeg = 0; ; nowSeg++) {
+            int finalNowSeg = nowSeg;
+
+            // region 补给任务
+            msg.SendMsg("第" + nowSeg + "段补给任务开始！", MsgLevel.info);
+
+            // 开启补给保护任务
+            Thread SupplyProtectThread = TaskManager.build(() -> SupplyTaskProtector(finalNowSeg))
+                    .setName("Rust Elytra 补给保护任务")
+                    .daemon().setPhase(TickPhase.PRE)
+                    .start();
+
+            // 开启补给任务
+            try {
+                supplyTask();
+            } catch (Exception e) {
+                // 补给失败
+                e.printStackTrace();
+                taskFailed(e.getMessage(), nowSeg - 1);
+                break;
+            } finally {
+                // 关闭保护任务
+                SupplyProtectThread.interrupt();
+            }
+
+            TaskManager.delay(1);
+            // endregion
+
+            // region 飞行任务
+            msg.SendMsg("第" + nowSeg + "段飞行任务开始！", MsgLevel.info);
+
+            // 开启鞘翅保护任务
+            Thread ElytraProtectThread = TaskManager.build(() -> ElytraTaskProtector(finalNowSeg)).setName("Rust Elytra 鞘翅保护任务")
+                    .daemon().setPhase(TickPhase.PRE).start();
+            // 开启鞘翅任务
+            try {
+                ElytraTask et = new ElytraTask(new BlockPos(TargetX, 64, TargetZ));
+                CompletableFuture<Exception> latch = new CompletableFuture<>();
+                TaskManager.build(()->{
+                    try {
+                        et.run();
+                        latch.complete(null);
+                    } catch (Exception e){
+                        latch.complete(e);
+                    }
+                }).setPhase(TickPhase.PRE).daemon().setName("RustElytra鞘翅主任务").start();
+                while (!latch.isDone())
+                    TaskManager.delay(1);
+                if(latch.join() != null)
+                    throw latch.join();
+                if (MinecraftContext.player().getBlockPos().isWithinDistance(new BlockPos(TargetX, 0, TargetZ), 3801)) {
+                    msg.SendMsg("到达目的地！圆满完成！！！", MsgLevel.warning);
+                    if (isAutoLog) {
+                        MutableText text = Text.literal("[RSTAutoLog] ");
+                        text.append(Text.literal("已经到达目的地"));
+                        MinecraftContext.player().networkHandler.onDisconnect(new DisconnectS2CPacket(text));
+                    }
+                    status = TaskStatus.NO_TASK;
+                    ModStatus = ModStatuses.idle;
+                    break;
+                }
+            } catch (Exception e) {
+                // 飞行失败
+                e.printStackTrace();
+                taskFailed(e.getMessage(), nowSeg);
+                break;
+            } finally {
+                // 关闭保护任务
+                ElytraProtectThread.interrupt();
+            }
+
+            TaskManager.delay(1);
+            // endregion
+        }
+
     }
 
-    private static void ElytraTaskProtector(@NotNull MinecraftClient client, int nowSeg) {
-        if (client.player == null)
-            return;
+    private static void SupplyTaskProtector(int nowSeg) {
+        float h = MinecraftContext.player().getHealth();
         while (true) {
-            if (client.player.getHealth() < 3.5) {
+            if (!TaskManager.computeOnMain(FireballProtect::FireballProtector)) {
+                ModStatus = ModStatuses.canceled;
+                taskFailed("无法拦截火球！自动退出！", nowSeg - 1);
+                return;
+            }
+            if (MinecraftContext.player().getHealth() < h) {
+                ModStatus = ModStatuses.canceled;
+                taskFailed("补给过程受伤！紧急！", nowSeg - 1);
+                return;
+            }
+            TaskManager.delay(1);
+        }
+    }
+
+    private static void ElytraTaskProtector(int nowSeg) {
+        while (true) {
+            if (MinecraftContext.player().getHealth() < 3.5) {
                 int count = 0;
                 for (int i = 0; i < 45; i++) {
-                    if (client.player.getInventory().getStack(i).getItem() == Items.TOTEM_OF_UNDYING)
-                        count += client.player.getInventory().getStack(i).getCount();
+                    if (MinecraftContext.player().getInventory().getStack(i).getItem() == Items.TOTEM_OF_UNDYING)
+                        count += MinecraftContext.player().getInventory().getStack(i).getCount();
                 }
                 if (count <= 1) {
                     ModStatus = ModStatuses.canceled;
-                    taskFailed(client, "AutoLog图腾数量过少且血量过低！", nowSeg);
+                    taskFailed("AutoLog图腾数量过少且血量过低！", nowSeg);
                     return;
                 }
             }
@@ -267,32 +259,27 @@ public class ModTask {
     /**
      * 任务失败处理函数
      *
-     * @param client 客户端对象
-     * @param str    失败原因
-     * @param seg    当前段数
+     * @param str 失败原因
+     * @param seg 当前段数
      */
-    public static void taskFailed(@NotNull MinecraftClient client, @NotNull String str, int seg) {
-        client.options.forwardKey.setPressed(false);
-        client.options.jumpKey.setPressed(false);
-        client.options.useKey.setPressed(false);
-
-        if (BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().isActive() ||
-            BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().isActive()) {
-            if (client.isOnThread())
-                BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop");
-            else
-                TaskManager.runOnMain(() -> BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("stop"));
-        }
+    public static void taskFailed(@NotNull String str, int seg) {
+        MinecraftContext.client().options.forwardKey.setPressed(false);
+        MinecraftContext.client().options.jumpKey.setPressed(false);
+        MinecraftContext.client().options.useKey.setPressed(false);
         if (seg == -1 && isAutoLogOnSeg1 || seg != -1 && isAutoLog) {
-            MutableText text = Text.literal("[RSTAutoLog] ");
+            MutableText text = Text.literal("[RustAutoLog] ");
             text.append(Text.literal(str));
-            if (client.player != null) {
-                client.player.networkHandler.onDisconnect(new DisconnectS2CPacket(text));
+            if (MinecraftContext.client().player != null) {
+                MinecraftContext.client().player.networkHandler.onDisconnect(new DisconnectS2CPacket(text));
             }
-        } else if (client.player != null) {
-            msg.SendMsg("任务结束。" + str, MsgLevel.fatal);
+        } else if (MinecraftContext.client().player != null) {
+            msg.SendMsg("任务中止。请仔细阅读错误信息:", MsgLevel.warning);
+            String[] error = str.split("\n");
+            for (String e : error)
+                msg.SendMsg(e, MsgLevel.error);
         }
         ModStatus = ModStatuses.idle;
+        status = TaskStatus.NO_TASK;
     }
 
     // region 模组任务状态枚举

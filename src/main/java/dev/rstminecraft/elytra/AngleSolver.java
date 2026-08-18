@@ -291,7 +291,7 @@ public class AngleSolver {
 
         final Deque<PitchResult> bestResults = new ArrayDeque<>();
 
-        Box hitbox = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 0.6, start.z + 0.3);
+        Box hitbox = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 1.8, start.z + 0.3);
 
         while (pitches.hasNext()) {
             final float pitch = pitches.nextFloat();
@@ -389,7 +389,7 @@ public class AngleSolver {
             return true;
         }
 
-        final Box bb = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 0.6, start.z + 0.3);
+        final Box bb = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 1.8, start.z + 0.3);
 
         final double ox = dest.x - start.x;
         final double oy = dest.y - start.y;
