@@ -92,26 +92,6 @@ public class AngleSolver {
         return pitchValues;
     }
 
-    public static List<Vec3d> getPointsOnPlane(Vec3d direction, double radius) {
-        // 1. 归一化方向向量
-        Vec3d v = direction.normalize();
-
-        // 2. 选择不共线的辅助向量
-        Vec3d helper = Math.abs(v.x) > 0.9 ? new Vec3d(0, 1, 0) : new Vec3d(1, 0, 0);
-
-        // 3. 构建垂面上的两个正交单位向量，并直接乘以半径
-        Vec3d ur = v.crossProduct(helper).normalize().multiply(radius);
-        Vec3d wr = v.crossProduct(ur).normalize().multiply(radius);
-
-        // 4. 直接利用正负组合 new 出 4 个点返回
-        List<Vec3d> points = new ArrayList<>(4);
-        points.add(ur);           // 点 0：( 1,  0) ->  ur
-        points.add(wr);           // 点 1：( 0,  1) ->  wr
-        points.add(ur.negate());  // 点 2：(-1,  0) -> -ur
-        points.add(wr.negate());  // 点 3：( 0, -1) -> -wr
-
-        return points;
-    }
 
     public List<Pair<Vec3d, Integer>> defaultCandidatePoints(FireworkBoost firework, int relaxation, int targetPathPos) {
 
@@ -139,10 +119,12 @@ public class AngleSolver {
                 Vec3d stepped = path.getVec(targetPathPos);
                 for (int interp = 0; interp < steps; interp++) {
                     candidates.add(new Pair<>(stepped, dy));
-                    for (int j : radius) {
-                        Vec3d finalStepped = stepped;
-                        getPointsOnPlane(delta, j).forEach(k -> candidates.add(new Pair<>(finalStepped.add(k), dy)));
-                    }
+                    candidates.add(new Pair<>(stepped.add(3, 0, 0), dy));
+                    candidates.add(new Pair<>(stepped.add(-3, 0, 0), dy));
+                    candidates.add(new Pair<>(stepped.add(0, 3, 0), dy));
+                    candidates.add(new Pair<>(stepped.add(0, -3, 0), dy));
+                    candidates.add(new Pair<>(stepped.add(0, 0, 3), dy));
+                    candidates.add(new Pair<>(stepped.add(0, 0, -3), dy));
                     stepped = stepped.subtract(step);
                 }
             }
@@ -295,7 +277,7 @@ public class AngleSolver {
 
         while (pitches.hasNext()) {
             final float pitch = pitches.nextFloat();
-            final List<Vec3d> displacement = simulate(hitbox, motion, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay, ignoreLava, relaxation);
+            final List<Vec3d> displacement = simulate(hitbox, motion, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay, ignoreLava);
             if (displacement == null) {
                 continue;
             }
@@ -332,7 +314,7 @@ public class AngleSolver {
 
     private List<Vec3d> simulate(Box hitbox, Vec3d motion, Vec3d goalDelta, final float pitch, final int ticks, final int ticksBoosted,
             final int ticksBoostDelay,
-            boolean ignoreLava, int relaxation) {
+            boolean ignoreLava) {
         Vec3d delta = goalDelta;
         List<Vec3d> displacement = new ArrayList<>(ticks + 1);
         displacement.add(Vec3d.ZERO);

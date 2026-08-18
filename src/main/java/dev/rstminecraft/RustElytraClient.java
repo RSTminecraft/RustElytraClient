@@ -44,10 +44,11 @@ public class RustElytraClient implements ClientModInitializer {
     public volatile static int currentTick = 0;
 
     // region 飞行mixin控制变量
-    public static boolean fixEyeHeight = false;
-    public static boolean cameraMixinSwitch = false;
-    public static float fixedYaw = 0f, fixedPitch = 0f;
-    public static float timerMultiplier = 1f;
+    public static volatile boolean fixEyeHeight = false;
+    public static volatile boolean cameraMixinSwitch = false;
+    public static volatile float fixedYaw = 0f, fixedPitch = 0f;
+    public static volatile float timerMultiplier = 1f;
+    public static volatile boolean blockedPlayerInput = false;
     // endregion
 
 

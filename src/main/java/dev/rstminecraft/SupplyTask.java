@@ -1018,6 +1018,12 @@ public class SupplyTask {
         runOnMain(() -> MinecraftContext.client().setScreen(null));
         // 挖掘末影箱
         mineEnderChest(EnderChestTargetPos);
+        BlockPos tmp = findPlaceTarget();
+        if (tmp != null) {
+            Rotation rotation = Rotation.calcRotationFromVec3d(MinecraftContext.player().getEyePos(), tmp.toCenterPos());
+            MinecraftContext.player().setPitch(0);
+            MinecraftContext.player().setYaw(rotation.getYaw());
+        }
         msg.SendMsg("补给任务圆满完成！", MsgLevel.tip);
     }
 }

@@ -14,11 +14,9 @@ import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static dev.rstminecraft.RustElytraClient.*;
 import static dev.rstminecraft.SupplyTask.supplyTask;
-//import static dev.rstminecraft.SupplyTask.supplyTask;
 
 public class ModTask {
     public static volatile @NotNull TaskStatus status = TaskStatus.NO_TASK;
@@ -81,6 +79,7 @@ public class ModTask {
         fixedYaw = 0f;
         fixedPitch = 0f;
         timerMultiplier = 1f;
+        blockedPlayerInput = false;
     }
 
     private static void resetClient() {
@@ -158,6 +157,7 @@ public class ModTask {
 
             // 开启补给任务
             try {
+                blockedPlayerInput = true;
                 supplyTask();
             } catch (Exception e) {
                 // 补给失败
@@ -167,6 +167,7 @@ public class ModTask {
             } finally {
                 // 关闭保护任务
                 SupplyProtectThread.interrupt();
+                blockedPlayerInput = false;
             }
 
             TaskManager.delay(1);
@@ -197,7 +198,7 @@ public class ModTask {
                 if (MinecraftContext.player().getBlockPos().isWithinDistance(new BlockPos(TargetX, 0, TargetZ), 3801)) {
                     msg.SendMsg("到达目的地！圆满完成！！！", MsgLevel.warning);
                     if (isAutoLog) {
-                        MutableText text = Text.literal("[RSTAutoLog] ");
+                        MutableText text = Text.literal("[RustAutoLog] ");
                         text.append(Text.literal("已经到达目的地"));
                         MinecraftContext.player().networkHandler.onDisconnect(new DisconnectS2CPacket(text));
                     }
@@ -283,10 +284,6 @@ public class ModTask {
     }
 
     // region 模组任务状态枚举
-    public enum TaskType {
-        EXP_BOTTLE, ELYTRA, INFINITY_ELYTRA
-    }
-
     public enum TaskStatus {
         NO_TASK, START, SUPPLY, FLYING, LANDING, REPAIR_ELYTRA
     }

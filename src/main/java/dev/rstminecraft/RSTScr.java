@@ -43,8 +43,8 @@ public class RSTScr extends SimpleScr {
             super.row = 1;
             super.col = 1;
             super.recall = (context, mouseX, mouseY, delta) -> {
-                context.drawTextWithShadow(textRenderer, "欢迎使用RSTAutoElytraMod", width / 3 * 2, 20, 0xFFFFFFFF);
-                context.drawTextWithShadow(textRenderer, "若您是第一次使用RSTAutoElytraMod，请务必仔细阅读本指南",
+                context.drawTextWithShadow(textRenderer, "欢迎使用RustElytraClient", width / 3 * 2, 20, 0xFFFFFFFF);
+                context.drawTextWithShadow(textRenderer, "若您是第一次使用RustElytraClient，请务必仔细阅读本指南",
                         width / 4, height / 10, 0xFFFF0000);
                 context.drawTextWithShadow(textRenderer, "否则可能造成物资损失或存档损坏等严重后果！", width / 4,
                         height / 10 + 15, 0xFFFFFFFF);
@@ -55,8 +55,9 @@ public class RSTScr extends SimpleScr {
                 ModStatus = ModStatuses.canceled;
                 if (client != null)
                     client.setScreen(parent);
-            })};
-            super.row = 1;
+            }), new SrcButtonEntry("暂停", "", () -> paused = true)
+                    , new SrcButtonEntry("继续", "", () -> paused = false)};
+            super.row = 3;
             super.col = 1;
             super.recall = (context, mouseX, mouseY, delta) -> {
                 context.drawTextWithShadow(textRenderer, "欢迎使用RSTAutoElytraMod", width / 3 * 2, 20, 0xFFFFFFFF);
@@ -70,8 +71,6 @@ public class RSTScr extends SimpleScr {
                     width / 3 * 2, 20,
                     0xFFFFFFFF);
         }
-
-
     }
 
     // 开始飞行菜单
@@ -88,7 +87,7 @@ public class RSTScr extends SimpleScr {
             super.entry = new SrcEntry[]{new SrcInputEntry("目的地X坐标", "目的地X坐标",
                     str -> x = str), // 一个X轴输入框
                     new SrcInputEntry("目的地Z坐标", "目的地Z坐标", str -> z = str), // 一个Y轴输入框
-                    new SrcButtonEntry("开始飞行(无尽鞘翅模式)",
+                    new SrcButtonEntry("开始飞行(无限鞘翅模式)",
                             "开始前往上方输入的坐标,通过自动每秒重装鞘翅,可不消耗鞘翅耐久,仅需一个鞘翅,且无需经验瓶",
                             () -> {
                                 int x1, z1;
@@ -212,9 +211,9 @@ public class RSTScr extends SimpleScr {
                     SettingsButtonsCol, null);
             super.recall = (context, mouseX, mouseY, delta) -> {
                 context.drawCenteredTextWithShadow(textRenderer, "您正在修改高级设置!", width / 2, height / 4,
-                        16777215);
+                        0xFFFFFFFF);
                 context.drawCenteredTextWithShadow(textRenderer, "这可能导致Mod稳定性下降或出现意外事故!!!", width / 2,
-                        height / 4 + 30, 0xFF0000);
+                        height / 4 + 30, 0xFFFF0000);
             };
             super.entry = new SrcEntry[]{new SrcButtonEntry("返回", "不修改高级设置", this::close), new SrcButtonEntry(
                     "我知道我在做什么!", "您已知晓更改高级设置的可能风险", () -> {

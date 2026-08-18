@@ -399,7 +399,7 @@ public class ElytraTask {
             ItemStack s = inv.getStack(i);
             if (s.isEmpty() || s.getItem() != Items.ENDER_CHEST && s.getItem() != Items.DIAMOND_PICKAXE && s.getItem() != Items.NETHERITE_PICKAXE &&
                                s.getItem() != Items.DIAMOND_SWORD && s.getItem() != Items.NETHERITE_SWORD &&
-                               s.getItem() != FoodList[FoodIndex.get()] && s.getItem() != Items.TOTEM_OF_UNDYING)
+                               s.getItem() != FoodList[FoodIndex.get()] && s.getItem() != Items.TOTEM_OF_UNDYING && s.getItem() != Items.ELYTRA)
                 replaceList.add(i);
         }
         if (replaceList.isEmpty())
