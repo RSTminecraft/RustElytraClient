@@ -9,9 +9,9 @@ name: Java CI with Gradle
 
 on:
   push:
-    branches: [ "1.21.8" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "1.21.8" ]
+    branches: [ "master" ]
 
 jobs:
   build:
@@ -40,7 +40,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Fabric-Mod-JAR
-        path: build/libs/1.21.8/*.jar
+        path: build/libs/1.21.11/*.jar
     # NOTE: The Gradle Wrapper is the default and recommended way to run Gradle (https://docs.gradle.org/current/userguide/gradle_wrapper.html).
     # If your project does not have the Gradle Wrapper configured, you can use the following configuration to run Gradle with a specified version.
     #
