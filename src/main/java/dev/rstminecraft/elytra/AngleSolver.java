@@ -22,7 +22,6 @@ import static dev.rstminecraft.RustClientCore.utils.FastMath.fastCeil;
 import static dev.rstminecraft.RustClientCore.utils.FastMath.fastFloor;
 
 public class AngleSolver {
-    private final static int[] radius = {2, 5};
     private final static double[] interps = new double[]{1.0, 0.75, 0.5, 0.25};
     private final NetherPathfinderContext npf;
     private final PathManager pathManager;
@@ -365,7 +364,7 @@ public class AngleSolver {
     }
 
     private boolean isHitBoxClear(Vec3d start, Vec3d dest, Double growAmount, boolean ignoreLava) {
-        if (hasObstacle(start, dest, ignoreLava))
+        if (hasObstacle(start, dest, ignoreLava) || hasObstacle(start.add(0, 1.8, 0), dest.add(0, 1.8, 0), ignoreLava))
             return false;
         if (growAmount == null) {
             return true;

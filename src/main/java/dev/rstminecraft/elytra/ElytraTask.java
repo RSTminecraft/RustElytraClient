@@ -1,5 +1,6 @@
 package dev.rstminecraft.elytra;
 
+import dev.rstminecraft.ModTask;
 import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.listener.PacketListener;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
@@ -55,16 +56,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.StreamSupport;
 
+import static dev.rstminecraft.ModTask.status;
 import static dev.rstminecraft.RustClientCore.task.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
 import static dev.rstminecraft.elytra.ElytraLanding.LANDING_COLUMN_HEIGHT;
+import static dev.rstminecraft.elytra.infinityElytra.isResettingElytra;
 import static dev.rstminecraft.elytra.takeoff.WalkToTakeoff.walkPath;
 
 public class ElytraTask {
 
     private final NetherPathfinderContext npf;
     private final BlockStateUtils bsu;
-    private final AtomicBoolean resettingElytra = new AtomicBoolean(false);
     ExecutorService angleSolverRunner = Executors.newSingleThreadExecutor();
     private AngleSolver angleSolver;
     private PathManager pathManager;
@@ -103,7 +105,7 @@ public class ElytraTask {
     }
 
     private void checkElytra() {
-        if (!resettingElytra.get() && MinecraftContext.player().getEquippedStack(EquipmentSlot.CHEST).getItem() != Items.ELYTRA) {
+        if (!isResettingElytra() && MinecraftContext.player().getEquippedStack(EquipmentSlot.CHEST).getItem() != Items.ELYTRA) {
             for (int i = 0; i < 36; i++) {
                 if (MinecraftContext.player().getInventory().getStack(i).getItem() == Items.ELYTRA) {
                     MinecraftContext.interactionManager().clickSlot(0, i < 9 ? i + 36 : i, 0, SlotActionType.PICKUP, MinecraftContext.player());
@@ -192,7 +194,7 @@ public class ElytraTask {
             return true;
         if (SupplyTask.countItemInInventory(FoodList[FoodIndex.get()]) < 16)
             return true;
-        if (!resettingElytra.get() && MinecraftContext.player().getEquippedStack(EquipmentSlot.CHEST).getItem() == Items.ELYTRA &&
+        if (!isResettingElytra() && MinecraftContext.player().getEquippedStack(EquipmentSlot.CHEST).getItem() == Items.ELYTRA &&
             MinecraftContext.player().getEquippedStack(EquipmentSlot.CHEST).getDamage() >
             MinecraftContext.player().getEquippedStack(EquipmentSlot.CHEST).getMaxDamage() - 40) {
             throw new RuntimeException("鞘翅没耐久了!!!");
@@ -202,29 +204,9 @@ public class ElytraTask {
     }
 
     public void run() {
-
+        status = ModTask.TaskStatus.FLYING;
         Thread pathManagerThread = build(pathManager::run).setName("elytra路径管理器").daemon().setPhase(TickPhase.PRE).start();
-        build(() -> {
-            while (true) {
-                if (currentTick % 12 == 0 && MinecraftContext.player().isGliding()) {
-                    resettingElytra.set(true);
-                    fixEyeHeight = true;
-                    MinecraftContext.interactionManager().clickSlot(0, 6, 0, SlotActionType.PICKUP, MinecraftContext.player());
-                    MinecraftContext.interactionManager().clickSlot(0, 44, 0, SlotActionType.PICKUP, MinecraftContext.player());
-                    runDeferred(() -> {
-                        MinecraftContext.interactionManager().clickSlot(0, 44, 0, SlotActionType.PICKUP, MinecraftContext.player());
-                        MinecraftContext.interactionManager().clickSlot(0, 6, 0, SlotActionType.PICKUP, MinecraftContext.player());
-                        MinecraftContext.player().startGliding();
-                        MinecraftContext.networkHandler()
-                                .sendPacket(new ClientCommandC2SPacket(MinecraftContext.player(), ClientCommandC2SPacket.Mode.START_FALL_FLYING));
-                        resettingElytra.set(false);
-                    }, TickPhase.PRE, 0);
-                } else if (currentTick % 12 == 3) {
-                    fixEyeHeight = false;
-                }
-                delay(1);
-            }
-        }).daemon().setPhase(TickPhase.POST).setName("无尽鞘翅").start();
+
         while (pathManager.path.isEmpty()) {delay(1);}
 
         TimelinessCounter fireworkCoolDown = new TimelinessCounter(10);
@@ -309,12 +291,14 @@ public class ElytraTask {
                     }
 
                     if (last != null && landingSpot != null && MinecraftContext.player().getEntityPos().squaredDistanceTo(last.toCenterPos()) < 1) {
+                        status = ModTask.TaskStatus.LANDING;
                         if (landing(landingSpot)) {
                             return;
                         } else {
                             msg.SendMsg("无效的降落点！准备寻找下一个", MsgLevel.warning);
                             ElytraLanding.markBadLandingPos(landingSpot);
                             landingSpot = null;
+                            status = ModTask.TaskStatus.FLYING;
                         }
                     }
                 }
@@ -444,7 +428,7 @@ public class ElytraTask {
             MinecraftContext.player().getVelocity().length() > 1.3 &&
             (MinecraftContext.player().getHungerManager().getFoodLevel() < 16 ||
              MinecraftContext.player().getHealth() < 15 && MinecraftContext.player().getHungerManager().getFoodLevel() < 20)) {
-            msg.SendMsg("准备食用", MsgLevel.tip);
+            msg.SendMsg("准备食用", MsgLevel.info);
             for (int i = 0; i < 8; i++) {
                 ItemStack s = MinecraftContext.player().getInventory().getStack(i);
                 Item item = s.getItem();
@@ -470,7 +454,7 @@ public class ElytraTask {
                     if (MinecraftContext.player().getVelocity().length() < 0.7 || MinecraftContext.player().isInLava() ||
                         MinecraftContext.player().isOnGround()) {
                         // 速度过低，放弃吃食物，防止影响烟花tick
-                        msg.SendMsg("放弃吃食物！！！", MsgLevel.tip);
+                        msg.SendMsg("放弃吃食物！！！", MsgLevel.info);
                         MinecraftContext.client().options.useKey.setPressed(false);
                         MinecraftContext.interactionManager().stopUsingItem(MinecraftContext.player());
                         stopped.countDown();
@@ -490,7 +474,7 @@ public class ElytraTask {
     }
 
     private void escapeLavaTick(AngleSolution solution) {
-        if (MinecraftContext.player().isInLava() && !MinecraftContext.player().isGliding() && !resettingElytra.get()) {
+        if (MinecraftContext.player().isInLava() && !MinecraftContext.player().isGliding() && !isResettingElytra()) {
             if (MinecraftContext.player().isOnGround()) {
                 jump();
                 delay(10);
@@ -501,7 +485,7 @@ public class ElytraTask {
                 throw new RuntimeException("被困岩浆");
         }
         if (MinecraftContext.player().isInLava() && MinecraftContext.player().getVelocity().length() < 0.3
-            && solution == null && !resettingElytra.get()) {
+            && solution == null && !isResettingElytra()) {
             msg.SendMsg("正在逃离岩浆", MsgLevel.info);
             MinecraftContext.player().setPitch(-90);
             PlayerInventory inv = MinecraftContext.player().getInventory();

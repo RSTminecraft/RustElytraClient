@@ -14,6 +14,8 @@ import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
 import dev.rstminecraft.RustClientCore.task.TickPhase;
 import dev.rstminecraft.elytra.ElytraTask;
+import dev.rstminecraft.elytra.NoKineticDamage;
+import dev.rstminecraft.elytra.infinityElytra;
 import dev.rstminecraft.utils.SilentRotation;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -44,9 +46,7 @@ public class RustElytraClient implements ClientModInitializer {
     public volatile static int currentTick = 0;
 
     // region 飞行mixin控制变量
-    public static volatile boolean fixEyeHeight = false;
     public static volatile boolean cameraMixinSwitch = false;
-    public static volatile float fixedYaw = 0f, fixedPitch = 0f;
     public static volatile float timerMultiplier = 1f;
     public static volatile boolean blockedPlayerInput = false;
     // endregion
@@ -100,13 +100,22 @@ public class RustElytraClient implements ClientModInitializer {
             currentTick++;
             if (client.player != null && openCustomScreenKey.isPressed())
                 client.setScreen(new RSTScr(client.currentScreen));
+            if (elytraDebugKey.wasPressed()) {
+                if (ModStatus != ModStatuses.idle) {
+                    msg.SendMsg("请勿在任务进行中使用无尽鞘翅测试", MsgLevel.warning);
+                } else {
+                    infinityElytra.enabled = !infinityElytra.enabled;
+                    NoKineticDamage.enabled = !NoKineticDamage.enabled;
+                    msg.SendMsg(infinityElytra.enabled ? "已启用无尽鞘翅测试" : "已禁用无尽鞘翅测试", MsgLevel.warning);
+                }
+            }
         });
-
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             if (ModStatus != ModStatuses.idle) {
                 ModStatus = ModStatuses.canceled;
             }
+            NoKineticDamage.onWorldChanged();
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("rtest")

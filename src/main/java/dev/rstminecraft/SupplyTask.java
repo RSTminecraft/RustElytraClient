@@ -69,7 +69,7 @@ public class SupplyTask {
             // 到达方块中心则停止
             if (Math.abs(delta.x) < 0.2 && Math.abs(delta.z) < 0.2) {
                 MinecraftContext.client().options.forwardKey.setPressed(false);
-                msg.SendMsg("行走完成", MsgLevel.tip);
+                msg.SendMsg("行走完成", MsgLevel.info);
                 return;
             }
             // 调整朝向
@@ -393,7 +393,7 @@ public class SupplyTask {
      */
     private static void OpenContainer(@NotNull BlockPos targetPos) {
         // 准备打开
-        msg.SendMsg("尝试放置末影箱成功，现在打开末影箱", MsgLevel.tip);
+        msg.SendMsg("尝试放置末影箱成功，现在打开末影箱", MsgLevel.info);
         BlockHitResult hitResult2 = new BlockHitResult(Vec3d.ofCenter(targetPos), Direction.UP, targetPos, false);
         ActionResult result = computeOnMain(() -> {
             MinecraftContext.player().swingHand(Hand.MAIN_HAND);
@@ -762,7 +762,7 @@ public class SupplyTask {
                 throw new TaskException("挖掘末影箱失败!");
             delay(1);
         }
-        msg.SendMsg("挖掘完毕", MsgLevel.tip);
+        msg.SendMsg("挖掘完毕", MsgLevel.info);
     }
 
     /**
@@ -930,7 +930,7 @@ public class SupplyTask {
             if (Supply.first() > 26 || Supply.first() < 0)
                 throw new RuntimeException("所需槽位异常,请联系开发者");
             else
-                msg.SendMsg("准备拿出" + Supply.first(), MsgLevel.tip);
+                msg.SendMsg("准备拿出" + Supply.first(), MsgLevel.info);
             // 找可以用来放潜影盒的槽位
             slot = -1;
             for (int j = 6; j < 9; j++) {
@@ -961,7 +961,7 @@ public class SupplyTask {
                                 MinecraftContext.player());
                 finalEnderChestHandled.close();
             });
-            msg.SendMsg("取出成功！", MsgLevel.tip);
+            msg.SendMsg("取出成功！", MsgLevel.info);
 
             delay(5);
 
@@ -984,11 +984,11 @@ public class SupplyTask {
             HandledScreen<?> ShulkerHandled = WaitForScreen(ShulkerName);
             // 拿出补给
             PutOutSupply(ShulkerHandled.getScreenHandler(), replaceSlot, Supply.second());
-            msg.SendMsg("取出补给物品成功", MsgLevel.tip);
+            msg.SendMsg("取出补给物品成功", MsgLevel.info);
             // 取出成功，挖掉潜影盒
             int newShulkerSlot = mineSupplyShulker(ShulkerTargetPos, ShulkerHandled) + 18;
 
-            msg.SendMsg("挖掘完毕，放回末影箱", MsgLevel.tip);
+            msg.SendMsg("挖掘完毕，放回末影箱", MsgLevel.info);
 
             // 重新打开末影箱
             runOnMain(() -> lookAt(Vec3d.ofCenter(EnderChestTargetPos)));
@@ -1012,7 +1012,7 @@ public class SupplyTask {
                         .clickSlot(finalEnderChestHandled1.getScreenHandler().syncId, newShulkerSlot, 0, SlotActionType.PICKUP,
                                 MinecraftContext.player());
             });
-            msg.SendMsg("放回完毕", MsgLevel.tip);
+            msg.SendMsg("放回完毕", MsgLevel.info);
             delay(1);
         }
         runOnMain(() -> MinecraftContext.client().setScreen(null));
@@ -1024,6 +1024,6 @@ public class SupplyTask {
             MinecraftContext.player().setPitch(0);
             MinecraftContext.player().setYaw(rotation.getYaw());
         }
-        msg.SendMsg("补给任务圆满完成！", MsgLevel.tip);
+        msg.SendMsg("补给任务圆满完成！", MsgLevel.info);
     }
 }

@@ -6,3 +6,4 @@ accessible field net/minecraft/entity/projectile/FireworkRocketEntity shooter Ln
 accessible field net/minecraft/entity/projectile/FireworkRocketEntity SHOOTER_ENTITY_ID Lnet/minecraft/entity/data/TrackedData;
 accessible method net/minecraft/entity/projectile/FireworkRocketEntity wasShotByEntity ()Z
 accessible field net/minecraft/client/option/KeyBinding boundKey Lnet/minecraft/client/util/InputUtil$Key;
+accessible method net/minecraft/entity/Entity adjustMovementForCollisions (Lnet/minecraft/util/math/Vec3d;)Lnet/minecraft/util/math/Vec3d;

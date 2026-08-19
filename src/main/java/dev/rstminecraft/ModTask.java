@@ -5,6 +5,8 @@ import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.task.TaskManager;
 import dev.rstminecraft.RustClientCore.task.TickPhase;
 import dev.rstminecraft.elytra.ElytraTask;
+import dev.rstminecraft.elytra.NoKineticDamage;
+import dev.rstminecraft.elytra.infinityElytra;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.s2c.common.DisconnectS2CPacket;
@@ -73,16 +75,15 @@ public class ModTask {
 
     // endregion
 
-    private static void resetMixin() {
-        fixEyeHeight = false;
+    static void resetMixin() {
         cameraMixinSwitch = false;
-        fixedYaw = 0f;
-        fixedPitch = 0f;
         timerMultiplier = 1f;
         blockedPlayerInput = false;
+        infinityElytra.enabled = false;
+        NoKineticDamage.enabled = false;
     }
 
-    private static void resetClient() {
+    static void resetClient() {
         MinecraftContext.client().options.forwardKey.setPressed(false);
         MinecraftContext.client().options.jumpKey.setPressed(false);
         MinecraftContext.client().options.useKey.setPressed(false);
@@ -131,7 +132,7 @@ public class ModTask {
         TaskManager.build(() -> {
             while (ModStatus != ModStatuses.idle) {
                 if (ModStatus == ModStatuses.canceled) {
-                    msg.SendMsg("任务中止", MsgLevel.fatal);
+                    msg.SendMsg("任务中止", MsgLevel.error);
                     modMainTask.interrupt();
                     return;
                 }
@@ -183,6 +184,8 @@ public class ModTask {
             try {
                 ElytraTask et = new ElytraTask(new BlockPos(TargetX, 64, TargetZ));
                 CompletableFuture<Exception> latch = new CompletableFuture<>();
+                infinityElytra.enabled = true;
+                NoKineticDamage.enabled = true;
                 TaskManager.build(()->{
                     try {
                         et.run();
@@ -214,6 +217,8 @@ public class ModTask {
             } finally {
                 // 关闭保护任务
                 ElytraProtectThread.interrupt();
+                infinityElytra.enabled = false;
+                NoKineticDamage.enabled = false;
             }
 
             TaskManager.delay(1);

@@ -2,24 +2,27 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组GUI实现。
 
+import dev.rstminecraft.RustClientCore.MinecraftContext;
 import dev.rstminecraft.RustClientCore.messenger.Messenger;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
 import dev.rstminecraft.RustClientCore.screen.AbstractScr;
 import dev.rstminecraft.RustClientCore.screen.SimpleScr;
+import dev.rstminecraft.RustClientCore.task.TaskManager;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
 
+import static dev.rstminecraft.ModTask.*;
 import static dev.rstminecraft.RustElytraClient.*;
 
 public class RSTScr extends SimpleScr {
     // 主菜单相关信息
     // 3行1列
-    private static final int MainButtonsRow = 2;
+    private static final int MainButtonsRow = 3;
     private static final int MainButtonsCol = 1;
 
     RSTScr(Screen parent) {
-        super(Text.literal("RST Auto Elytra Menu"), null, parent, MainButtonsRow, MainButtonsCol, null);
+        super(Text.literal("RustElytraClient Menu"), null, parent, MainButtonsRow, MainButtonsCol, null);
 
         //主菜单组件信息
         SrcEntry[] MainEntry = {new SrcButtonEntry("设置", "调整Mod设置", () -> {
@@ -31,6 +34,14 @@ public class RSTScr extends SimpleScr {
             if (client != null) {
                 client.setScreen(new ciScr(client.currentScreen));
             }
+        }), new SrcButtonEntry("强行重启模组", "强行重启模组，用于解决一些未知问题", () -> {
+            msg.SendMsg("强行重启模组", MsgLevel.warning);
+            TaskManager.stopAllTask();
+            ModStatus = ModStatuses.idle;
+            status = ModTask.TaskStatus.NO_TASK;
+            resetClient();
+            resetMixin();
+            MinecraftContext.client().setScreen(null);
         })};
 
         if (FirstUse.get()) {
@@ -55,19 +66,32 @@ public class RSTScr extends SimpleScr {
                 ModStatus = ModStatuses.canceled;
                 if (client != null)
                     client.setScreen(parent);
-            }), new SrcButtonEntry("暂停", "", () -> paused = true)
-                    , new SrcButtonEntry("继续", "", () -> paused = false)};
-            super.row = 3;
+            }), new SrcButtonEntry("暂停", "", () -> {
+                paused = true;
+                MinecraftContext.client().setScreen(null);
+            }), new SrcButtonEntry("继续", "", () -> {
+                paused = false;
+                MinecraftContext.client().setScreen(null);
+            }), new SrcButtonEntry("强行重启模组", "强行重启模组，用于解决一些未知问题", () -> {
+                msg.SendMsg("强行重启模组", MsgLevel.warning);
+                TaskManager.stopAllTask();
+                ModStatus = ModStatuses.idle;
+                status = ModTask.TaskStatus.NO_TASK;
+                resetClient();
+                resetMixin();
+                MinecraftContext.client().setScreen(null);
+            })};
+            super.row = 4;
             super.col = 1;
             super.recall = (context, mouseX, mouseY, delta) -> {
-                context.drawTextWithShadow(textRenderer, "欢迎使用RSTAutoElytraMod", width / 3 * 2, 20, 0xFFFFFFFF);
+                context.drawTextWithShadow(textRenderer, "欢迎使用RustElytraClient", width / 3 * 2, 20, 0xFFFFFFFF);
                 context.drawTextWithShadow(textRenderer, "正在飞行中，若要更改设置请先取消飞行。", width / 4, height / 10,
                         0xFFFF0000);
             };
         } else {
             super.entry = MainEntry;
             super.recall = (context, mouseX, mouseY, delta) -> context.drawTextWithShadow(textRenderer,
-                    "欢迎使用RSTAutoElytraMod",
+                    "欢迎使用RustElytraClient",
                     width / 3 * 2, 20,
                     0xFFFFFFFF);
         }
@@ -83,7 +107,7 @@ public class RSTScr extends SimpleScr {
 
 
         public ciScr(Screen parent) {
-            super(Text.literal("RST Auto Elytra Mod Menu"), null, parent, ciButtonsRow, ciButtonsCol, null);
+            super(Text.literal("RustElytraClient Menu"), null, parent, ciButtonsRow, ciButtonsCol, null);
             super.entry = new SrcEntry[]{new SrcInputEntry("目的地X坐标", "目的地X坐标",
                     str -> x = str), // 一个X轴输入框
                     new SrcInputEntry("目的地Z坐标", "目的地Z坐标", str -> z = str), // 一个Y轴输入框
@@ -107,7 +131,7 @@ public class RSTScr extends SimpleScr {
                                 if (client == null || client.player == null)
                                     return;
 
-                                if (ModTask.status != ModTask.TaskStatus.NO_TASK) {
+                                if (status != ModTask.TaskStatus.NO_TASK) {
                                     msg.SendMsg("模组遇到线程状态错误，通常重启可解决！",
                                             MsgLevel.warning);
                                     return;
@@ -130,7 +154,7 @@ public class RSTScr extends SimpleScr {
         private static final int SettingsButtonsCol = 1;
 
         public SettingsScr(Screen parent) {
-            super(Text.literal("RST Auto Elytra Mod Settings Menu"), null, parent, SettingsButtonsRow,
+            super(Text.literal("RustElytraClient  Settings Menu"), null, parent, SettingsButtonsRow,
                     SettingsButtonsCol, null);
             super.entry = new SrcEntry[]{new SrcSwitchEntry("自动退出", "在任务失败时是否自动退出服务器",
                     isAutoLog::set, isAutoLog.get())//自动退出开关
@@ -162,7 +186,7 @@ public class RSTScr extends SimpleScr {
         private final int buttonWidth;
 
         public AdvancedSettingsScr(Screen parent) {
-            super(Text.literal("RST Auto Elytra Mod Settings Menu"));
+            super(Text.literal("RustElytraClient Settings Menu"));
             this.parent = parent;
             buttonWidth = Math.max(100, Math.min(600, (int) (width * 0.7)));
         }
@@ -207,7 +231,7 @@ public class RSTScr extends SimpleScr {
         private static final int SettingsButtonsCol = 2;
 
         public AdvancedSettingsWarningScr(Screen parent) {
-            super(Text.literal("RST Auto Elytra Mod Settings Menu"), null, parent, SettingsButtonsRow,
+            super(Text.literal("RustElytraClient Settings Menu"), null, parent, SettingsButtonsRow,
                     SettingsButtonsCol, null);
             super.recall = (context, mouseX, mouseY, delta) -> {
                 context.drawCenteredTextWithShadow(textRenderer, "您正在修改高级设置!", width / 2, height / 4,
@@ -232,7 +256,7 @@ public class RSTScr extends SimpleScr {
         private int y = 0;
 
         public HudSettingsScr(Screen parent) {
-            super(Text.literal("RST Elytra Mod Hud Settings"), null, parent, HudSettingsRow, HudSettingsCol, null);
+            super(Text.literal("RustElytraClient Hud Settings"), null, parent, HudSettingsRow, HudSettingsCol, null);
             super.entry = new SrcEntry[]{new SrcInputEntry("HUD X坐标", "HUD X坐标", str -> {
                 try {
                     x = Integer.parseInt(str);
