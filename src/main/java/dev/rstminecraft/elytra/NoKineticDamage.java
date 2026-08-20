@@ -113,6 +113,6 @@ public final class NoKineticDamage {
     }
 
     private static void setPitchSafe(Entity e) {
-        e.setPitch(safePitch((float) -89.999));
+        e.setPitch(safePitch(-89.999f));
     }
 }
