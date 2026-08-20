@@ -4,22 +4,16 @@ package dev.rstminecraft;
 
 //文件解释：本文件为模组主文件。
 
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import dev.rstminecraft.RustClientCore.ModConfig;
 import dev.rstminecraft.RustClientCore.ModConfig.BoolConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.IntConfigEntry;
 import dev.rstminecraft.RustClientCore.ModConfig.LongConfigEntry;
 import dev.rstminecraft.RustClientCore.messenger.Messenger;
 import dev.rstminecraft.RustClientCore.messenger.MsgLevel;
-import dev.rstminecraft.RustClientCore.task.TaskManager;
-import dev.rstminecraft.RustClientCore.task.TickPhase;
-import dev.rstminecraft.elytra.ElytraTask;
 import dev.rstminecraft.elytra.NoKineticDamage;
 import dev.rstminecraft.elytra.infinityElytra;
 import dev.rstminecraft.utils.SilentRotation;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -31,24 +25,22 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static dev.rstminecraft.ModHud.DrawHud;
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 
 public class RustElytraClient implements ClientModInitializer {
     public static final Logger MODLOGGER = LoggerFactory.getLogger("rust-elytra-client");
     public static final Item[] FoodList = {Items.GOLDEN_CARROT, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_CHICKEN};
+
     public volatile static int currentTick = 0;
 
     // region 飞行mixin控制变量
-    public static volatile boolean cameraMixinSwitch = false;
-    public static volatile float timerMultiplier = 1f;
-    public static volatile boolean blockedPlayerInput = false;
+    public volatile static float timerMultiplier = 1f;
+    public volatile static boolean blockedPlayerInput = false;
     // endregion
 
 
@@ -73,8 +65,6 @@ public class RustElytraClient implements ClientModInitializer {
     public static @NotNull LongConfigEntry netherSeed = config.new LongConfigEntry("netherSeed", -7346913998703726680L /* 3c3u种子作为默认 */);
     public static @NotNull IntConfigEntry elytraFireworkSpeed = config.new IntConfigEntry("elytraFireworkSpeed", 1);
     // endregion
-
-    public static ElytraTask et;
     // 信息发送器
     public static Messenger msg;
 
@@ -117,28 +107,6 @@ public class RustElytraClient implements ClientModInitializer {
             }
             NoKineticDamage.onWorldChanged();
         });
-
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("rtest")
-                .then(ClientCommandManager.argument("x", IntegerArgumentType.integer())
-                        .then(ClientCommandManager.argument("z", IntegerArgumentType.integer())
-                                .executes(context -> {
-                                    int targetX = IntegerArgumentType.getInteger(context, "x");
-                                    int targetZ = IntegerArgumentType.getInteger(context, "z");
-                                    et = new ElytraTask(new BlockPos(targetX, 64, targetZ));
-                                    TaskManager.build(et::run).setPhase(TickPhase.PRE).setName("elytra").start();
-                                    return 1;
-                                })))));
-
-
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("pause").executes(context -> {
-            paused = true;
-            return 1;
-        })));
-
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(literal("resume").executes(context -> {
-            paused = false;
-            return 1;
-        })));
 
         SilentRotation.init();
     }

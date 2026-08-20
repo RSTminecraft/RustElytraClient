@@ -10,6 +10,7 @@ import dev.rstminecraft.utils.SilentRotation;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.floats.FloatIterator;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -118,12 +119,6 @@ public class AngleSolver {
                 Vec3d stepped = path.getVec(targetPathPos);
                 for (int interp = 0; interp < steps; interp++) {
                     candidates.add(new Pair<>(stepped, dy));
-                    candidates.add(new Pair<>(stepped.add(3, 0, 0), dy));
-                    candidates.add(new Pair<>(stepped.add(-3, 0, 0), dy));
-                    candidates.add(new Pair<>(stepped.add(0, 3, 0), dy));
-                    candidates.add(new Pair<>(stepped.add(0, -3, 0), dy));
-                    candidates.add(new Pair<>(stepped.add(0, 0, 3), dy));
-                    candidates.add(new Pair<>(stepped.add(0, 0, -3), dy));
                     stepped = stepped.subtract(step);
                 }
             }
@@ -139,6 +134,8 @@ public class AngleSolver {
         AngleSolution solution = null;
 
         for (final Pair<Vec3d, Integer> candidate : candidates) {
+            if(!MinecraftContext.world().isPosLoaded(BlockPos.ofFloored(candidate.first())))
+                continue;
             final Integer augment = candidate.second();
             Vec3d dest = candidate.first().add(0, augment, 0);
 
@@ -200,7 +197,7 @@ public class AngleSolver {
 
         for (int relaxation = 0; relaxation < 3; relaxation++) {
 
-            for (int i = Math.min(playerNear + (relaxation == 2 ? 5 : 20), path.size() - 1); i >= playerNear; i--) {
+            for (int i = Math.min(playerNear + (relaxation == 2 ? 12 : 20), path.size() - 1); i >= playerNear; i--) {
 
                 final List<Pair<Vec3d, Integer>> candidates = defaultCandidatePoints(firework, relaxation, i);
                 solution = findSolutionInCandidate(start, motion, ignoreLava, firework, relaxation, candidates, i, rotate.getPitch(),
@@ -272,7 +269,7 @@ public class AngleSolver {
 
         final Deque<PitchResult> bestResults = new ArrayDeque<>();
 
-        Box hitbox = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 1.8, start.z + 0.3);
+        Box hitbox = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 0.6, start.z + 0.3);
 
         while (pitches.hasNext()) {
             final float pitch = pitches.nextFloat();
@@ -364,13 +361,13 @@ public class AngleSolver {
     }
 
     private boolean isHitBoxClear(Vec3d start, Vec3d dest, Double growAmount, boolean ignoreLava) {
-        if (hasObstacle(start, dest, ignoreLava) || hasObstacle(start.add(0, 1.8, 0), dest.add(0, 1.8, 0), ignoreLava))
+        if (hasObstacle(start, dest, ignoreLava))
             return false;
         if (growAmount == null) {
             return true;
         }
 
-        final Box bb = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 1.8, start.z + 0.3);
+        final Box bb = new Box(start.x - 0.3, start.y, start.z - 0.3, start.x + 0.3, start.y + 0.6, start.z + 0.3);
 
         final double ox = dest.x - start.x;
         final double oy = dest.y - start.y;

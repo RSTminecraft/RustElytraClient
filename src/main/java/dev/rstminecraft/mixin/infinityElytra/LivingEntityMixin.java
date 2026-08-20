@@ -1,5 +1,6 @@
 package dev.rstminecraft.mixin.infinityElytra;
 
+import dev.rstminecraft.RustElytraClient;
 import dev.rstminecraft.elytra.infinityElytra;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
@@ -33,7 +34,7 @@ public abstract class LivingEntityMixin {
 
         infinityElytra.durabilityCounter++;
 
-        if (infinityElytra.durabilityCounter >= infinityElytra.period
+        if (infinityElytra.durabilityCounter >= infinityElytra.period * RustElytraClient.timerMultiplier
             && infinityElytra.canContinueGliding(player)) {
             infinityElytra.startTransaction(player);
             if (infinityElytra.resetVanilla) {

@@ -39,9 +39,11 @@ import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeKeys;
+import net.minecraft.world.chunk.ChunkStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +60,7 @@ import static dev.rstminecraft.ModTask.status;
 import static dev.rstminecraft.RustClientCore.task.TaskManager.*;
 import static dev.rstminecraft.RustElytraClient.*;
 import static dev.rstminecraft.elytra.ElytraLanding.LANDING_COLUMN_HEIGHT;
+import static dev.rstminecraft.elytra.ElytraLanding.hasAirBubble;
 import static dev.rstminecraft.elytra.infinityElytra.isResettingElytra;
 import static dev.rstminecraft.elytra.takeoff.WalkToTakeoff.walkPath;
 
@@ -65,9 +68,19 @@ public class ElytraTask {
 
     private final NetherPathfinderContext npf;
     private final BlockStateUtils bsu;
+    private final TimelinessCounter fireworkCoolDown = new TimelinessCounter(10);
+    private final TimelinessCounter solveFailedCounter = new TimelinessCounter(10);
+    private final TimelinessCounter chunkLoadSlowCounter = new TimelinessCounter(4800);
+    private final AtomicInteger minFireworkTicks = new AtomicInteger(10);
+    private final BoxRenderer GoingToRenderer = BoxRenderer.create(BetterBlockPos.ORIGIN, 0xFF55FF55);
+    private final PacketListener SetbackListener = PacketListener.create(packet -> {
+        if (packet instanceof PlayerPositionLookS2CPacket)
+            runDeferred(fireworkCoolDown::accumulate, TickPhase.PRE, 0);
+    });
     ExecutorService angleSolverRunner = Executors.newSingleThreadExecutor();
     private AngleSolver angleSolver;
     private PathManager pathManager;
+
 
     public ElytraTask(BlockPos destination) {
         npf = new NetherPathfinderContext(netherSeed.get());
@@ -76,7 +89,7 @@ public class ElytraTask {
         angleSolver = new AngleSolver(npf, pathManager, bsu);
     }
 
-    public static LivingEntity getBoostedEntity(FireworkRocketEntity rocket) {
+    public LivingEntity getBoostedEntity(FireworkRocketEntity rocket) {
         if (rocket.wasShotByEntity() && rocket.shooter == null) {
             Entity e = rocket.getEntityWorld().getEntityById(
                     rocket.getDataTracker().get(FireworkRocketEntity.SHOOTER_ENTITY_ID).getAsInt()
@@ -88,7 +101,7 @@ public class ElytraTask {
         return rocket.shooter;
     }
 
-    public static boolean isPlayerInNetherWastes() {
+    public boolean isPlayerInNetherWastes() {
         BlockPos blockPos = MinecraftContext.player().getBlockPos();
 
         RegistryEntry<Biome> biomeEntry = MinecraftContext.world().getBiome(blockPos);
@@ -99,6 +112,18 @@ public class ElytraTask {
     private void jump() {
         MinecraftContext.client().options.jumpKey.setPressed(true);
         runDeferred(() -> MinecraftContext.client().options.jumpKey.setPressed(false), TickPhase.POST, 0);
+        delay(1);
+    }
+
+    public void takeoff() {
+        double preY = MinecraftContext.player().getY();
+        jump();
+        for (int i = 0; MinecraftContext.player().getY() < preY + 1; i++) {
+            if (i > 20)
+                throw new RuntimeException("起跳高度错误");
+            delay(1);
+        }
+        jump();
         delay(1);
     }
 
@@ -115,16 +140,64 @@ public class ElytraTask {
         }
     }
 
-    private void takeoff() {
-        double preY = MinecraftContext.player().getY();
-        jump();
-        for (int i = 0; MinecraftContext.player().getY() > preY + 1; i++) {
-            if (i > 20)
-                throw new RuntimeException("起跳高度错误");
-            delay(1);
+    /**
+     * 计算渲染距离内的未加载区块
+     *
+     * @return 未加载区块的占比(0 - 1)
+     */
+    private float calculateUnloadedChunks() {
+        ChunkPos centerChunk = new ChunkPos(MinecraftContext.player().getBlockPos());
+        int totalChunks = 0;
+        int unloadedChunks = 0;
+        int RenderChunk = Math.min(MinecraftContext.client().options.getClampedViewDistance(), 5);
+        // 检查周围区块
+        for (int dx = -RenderChunk; dx <= RenderChunk; dx++) {
+            for (int dz = -RenderChunk; dz <= RenderChunk; dz++) {
+                totalChunks++;
+                ChunkPos chunkPos = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
+
+                // 检查区块是否已加载
+                if (MinecraftContext.world().getChunk(chunkPos.x, chunkPos.z, ChunkStatus.FULL, false) == null) {
+                    unloadedChunks++;
+                }
+            }
         }
-        jump();
-        delay(1);
+
+        return totalChunks > 0 ? (float) unloadedChunks / totalChunks : 0;
+    }
+
+    private void chunkLoadCheck() {
+        // 每10tick检查一次
+        if(currentTick % 10 != 5)
+            return;
+
+        if (calculateUnloadedChunks() > 0.4 && hasAirBubble(MinecraftContext.player().getBlockPos())) {
+            msg.SendMsg("暂停等待区块加载", MsgLevel.info);
+            chunkLoadSlowCounter.accumulate();
+            float yaw = MinecraftContext.player().getYaw();
+            while (calculateUnloadedChunks() > 0.05 && hasAirBubble(MinecraftContext.player().getBlockPos())) {
+                yaw += 180;
+                yaw %= 360;
+                SilentRotation.setRotation(yaw, 0);
+                delay(1);
+            }
+            if(chunkLoadSlowCounter.getCount() > 1){
+                // 多次等待,适当减慢timer
+                if (timerMultiplier > 0.6f) {
+                    timerMultiplier -= 0.1f;
+                    msg.SendMsg("区块加载很慢,适当降低timer至" + String.format("%.1f", timerMultiplier), MsgLevel.warning);
+                }
+            }
+        }
+
+        if(chunkLoadSlowCounter.getCount() == 0){
+            // 四分钟内没有出现加载过慢
+            if (timerMultiplier < 1f) {
+                timerMultiplier += 0.1f;
+                msg.SendMsg("区块加载速度恢复,适当提升timer至" + timerMultiplier, MsgLevel.warning);
+            }
+        }
+
     }
 
     private void gotoTakeoff() {
@@ -153,6 +226,46 @@ public class ElytraTask {
         pathManager.doPathManagerTick = true;
     }
 
+    private void handleSolveFailed() {
+        if (!MinecraftContext.player().isGliding())
+            return;
+        solveFailedCounter.accumulate();
+        if (solveFailedCounter.getCount() < 8)
+            return;
+        CompletableFuture<AngleSolution> solutionFuture;
+        for (int k = 2; k <= 25; k++) {
+            int finalK = k;
+            if (!MinecraftContext.world().getBlockState(MinecraftContext.player().getBlockPos().add(0, finalK, 0)).isAir()) {
+                break;
+            }
+            solutionFuture = CompletableFuture.supplyAsync(() -> angleSolver.solveAngle(MinecraftContext.player()
+                    .getEntityPos().add(0, finalK, 0), new Vec3d(0, 1.675, 0), MinecraftContext.player()
+                    .isInLava(), new FireworkBoost((int) (finalK / 1.675), 20)));
+            for (int i = 0; i < 3 && !solutionFuture.isDone(); i++) {
+                SilentRotation.setRotation(MinecraftContext.player().getYaw() + 180, 0);
+                delay(1);
+            }
+            if (!solutionFuture.isDone()) {
+                solutionFuture.cancel(true);
+                continue;
+            }
+            if (solutionFuture.join() != null) {
+                int targetY = (int) (MinecraftContext.player().getY() + k - 1);
+                MinecraftContext.player().setPitch(-90);
+                delay(1);
+                if (!MinecraftContext.player().isGliding())
+                    return;
+                useFirework();
+                for (int i = 0; i < 20; i++) {
+                    if (MinecraftContext.player().getY() > targetY)
+                        return;
+                    delay(1);
+                }
+                throw new RuntimeException("起飞失败!");
+            }
+        }
+    }
+
     // 准备起飞
     private void tryToTakeoff() {
         if (!MinecraftContext.player().isOnGround()) {
@@ -165,24 +278,48 @@ public class ElytraTask {
             gotoTakeoff();
             return;
         }
-        CompletableFuture<AngleSolution> solutionFuture = new CompletableFuture<>();
-        pathManager.updatePlayerNear();
-        runDeferred(() -> CompletableFuture.runAsync(() -> solutionFuture.complete(angleSolver.solveAngle(MinecraftContext.player()
-                .getEntityPos().add(0, 1, 0), Vec3d.ZERO, MinecraftContext.player()
-                .isInLava(), new FireworkBoost(null, 10)))), TickPhase.POST, 0);
-        delay(1);
 
-        for (int i = 0; i < 100 && !solutionFuture.isDone(); i++)
+        pathManager.updatePlayerNear();
+        CompletableFuture<AngleSolution> solutionFuture =
+                CompletableFuture.supplyAsync(() -> angleSolver.solveAngle(MinecraftContext.player()
+                        .getEntityPos().add(0, 1, 0), Vec3d.ZERO, MinecraftContext.player()
+                        .isInLava(), new FireworkBoost(0, 20)));
+        for (int i = 0; i < 3 && !solutionFuture.isDone(); i++)
             delay(1);
         if (!solutionFuture.isDone()) {
-            msg.SendMsg("solve超时!", MsgLevel.error);
+            solutionFuture.cancel(true);
+        } else if (solutionFuture.join() != null) {
+            takeoff();
             return;
         }
-        if (solutionFuture.join() == null) {
-            gotoTakeoff();
-        } else {
-            takeoff();
+        for (int k = 2; k <= 25; k++) {
+            int finalK = k;
+            if (!MinecraftContext.world().getBlockState(MinecraftContext.player().getBlockPos().add(0, finalK, 0)).isAir()) {
+                break;
+            }
+            solutionFuture = CompletableFuture.supplyAsync(() -> angleSolver.solveAngle(MinecraftContext.player()
+                    .getEntityPos().add(0, finalK, 0), new Vec3d(0, 1.675, 0), MinecraftContext.player()
+                    .isInLava(), new FireworkBoost((int) (finalK / 1.675), 20)));
+            for (int i = 0; i < 3 && !solutionFuture.isDone(); i++)
+                delay(1);
+            if (!solutionFuture.isDone()) {
+                solutionFuture.cancel(true);
+                continue;
+            }
+            if (solutionFuture.join() != null) {
+                int targetY = (int) (MinecraftContext.player().getY() + k - 1);
+                MinecraftContext.player().setPitch(-90);
+                takeoff();
+                useFirework();
+                for (int i = 0; i < 20; i++) {
+                    if (MinecraftContext.player().getY() > targetY)
+                        return;
+                    delay(1);
+                }
+                throw new RuntimeException("起飞失败!");
+            }
         }
+        gotoTakeoff();
     }
 
     private boolean checkInv() {
@@ -207,15 +344,6 @@ public class ElytraTask {
 
         while (pathManager.path.isEmpty()) {delay(1);}
 
-        TimelinessCounter fireworkCoolDown = new TimelinessCounter(10);
-        AtomicInteger minFireworkTicks = new AtomicInteger(10);
-        BoxRenderer GoingToRenderer = BoxRenderer.create(BetterBlockPos.ORIGIN, 0xFF55FF55);
-
-        PacketListener SetbackListener = PacketListener.create(packet -> {
-            if (packet instanceof PlayerPositionLookS2CPacket)
-                runDeferred(fireworkCoolDown::accumulate, TickPhase.PRE, 0);
-        });
-
         BetterBlockPos landingSpot = null;
 
         try {
@@ -226,8 +354,12 @@ public class ElytraTask {
                     continue;
                 }
 
-                if (!MinecraftContext.player().isGliding() && !MinecraftContext.player().isInLava()) {
-                    tryToTakeoff();
+                if (!MinecraftContext.player().isGliding()) {
+                    if (MinecraftContext.player().isInLava()) {
+                        escapeLavaTick(null);
+                    } else {
+                        tryToTakeoff();
+                    }
                     delay(1);
                     continue;
                 }
@@ -245,23 +377,40 @@ public class ElytraTask {
                 }), TickPhase.POST, 0);
 
                 delay(1);
+                AngleSolution solution = null;
 
-                AngleSolution solution = solutionFuture.join();
+                for (int i = 1; ; i++) {
+                    if (solutionFuture.isDone()) {
+                        solution = solutionFuture.join();
+                        break;
+                    }
+                    if (i > 3) {
+                        msg.SendMsg("解算超时!", MsgLevel.info);
+                        angleSolverRunner.shutdownNow();
+                        angleSolverRunner = Executors.newSingleThreadExecutor();
+                        break;
+                    }
+                    delay(1);
+                }
                 if (solution == null) {
                     msg.SendMsg("解算失败!", MsgLevel.info);
+                    handleSolveFailed();
+                    solveFailedCounter.clear();
+
                     continue;
                 }
                 if (!solution.solvedPitch())
                     msg.SendMsg("未解算出pitch", MsgLevel.debug);
                 SilentRotation.setRotation(solution.rotation().getYaw(), solution.rotation().getPitch());
 
-                fireworkTick(solution, minFireworkTicks, fireworkCoolDown);
+                fireworkTick(solution);
 
                 if (solution.goingTo() != null)
                     GoingToRenderer.update(new BetterBlockPos(BlockPos.ofFloored(solution.goingTo())), 0xFF55FF55);
 
                 autoEatTick();
                 escapeLavaTick(solution);
+                chunkLoadCheck();
 
                 boolean landForSupply = checkInv();
                 if (pathManager.path.complete || landForSupply) {
@@ -308,7 +457,23 @@ public class ElytraTask {
         }
     }
 
-    private void fireworkTick(AngleSolution solution, AtomicInteger minFireworkTicks, TimelinessCounter fireworkCoolDown) {
+    private void useFirework() {
+        int fireworkSlot = findItemInHotBar(Items.FIREWORK_ROCKET);
+        if (fireworkSlot == -1) {
+            takeOutFirework();
+            fireworkSlot = findItemInHotBar(Items.FIREWORK_ROCKET);
+            if (fireworkSlot == -1)
+                throw new IllegalStateException("缺少烟花");
+        }
+        int finalSlot = fireworkSlot;
+        runOnMain(() -> {
+            MinecraftContext.player().getInventory().setSelectedSlot(finalSlot);
+            MinecraftContext.networkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlot));
+            MinecraftContext.interactionManager().interactItem(MinecraftContext.player(), Hand.MAIN_HAND);
+        });
+    }
+
+    private void fireworkTick(AngleSolution solution) {
 
         if (fireworkCoolDown.getCount() == 0) {
             if (solution.goingTo() == null)
@@ -325,20 +490,8 @@ public class ElytraTask {
                                                                                                                5) &&
                                                currentSpeed < elytraFireworkSpeed.get() * elytraFireworkSpeed.get()) {
                 fireworkCoolDown.accumulate();
-                int fireworkSlot = findItemInHotBar(Items.FIREWORK_ROCKET);
-                if (fireworkSlot == -1) {
-                    takeOutFirework();
-                    fireworkSlot = findItemInHotBar(Items.FIREWORK_ROCKET);
-                    if (fireworkSlot == -1)
-                        throw new IllegalStateException("缺少烟花");
-                }
-                int finalSlot = fireworkSlot;
+                useFirework();
                 int level = 1;
-                runOnMain(() -> {
-                    MinecraftContext.player().getInventory().setSelectedSlot(finalSlot);
-                    MinecraftContext.networkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlot));
-                    MinecraftContext.interactionManager().interactItem(MinecraftContext.player(), Hand.MAIN_HAND);
-                });
                 minFireworkTicks.set(10 * (1 + level));
             }
         }
@@ -427,7 +580,7 @@ public class ElytraTask {
             (MinecraftContext.player().getHungerManager().getFoodLevel() < 16 ||
              MinecraftContext.player().getHealth() < 15 && MinecraftContext.player().getHungerManager().getFoodLevel() < 20)) {
             msg.SendMsg("准备食用", MsgLevel.info);
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 9; i++) {
                 ItemStack s = MinecraftContext.player().getInventory().getStack(i);
                 Item item = s.getItem();
                 if (item == FoodList[FoodIndex.get()]) {
@@ -474,9 +627,11 @@ public class ElytraTask {
     private void escapeLavaTick(AngleSolution solution) {
         if (MinecraftContext.player().isInLava() && !MinecraftContext.player().isGliding() && !isResettingElytra()) {
             if (MinecraftContext.player().isOnGround()) {
-                jump();
-                delay(10);
+                MinecraftContext.client().options.jumpKey.setPressed(true);
+                delay(9);
+                MinecraftContext.client().options.jumpKey.setPressed(false);
             }
+            delay(1);
             jump();
             delay(1);
             if (!MinecraftContext.player().isGliding())
@@ -485,29 +640,17 @@ public class ElytraTask {
         if (MinecraftContext.player().isInLava() && MinecraftContext.player().getVelocity().length() < 0.3
             && solution == null && !isResettingElytra()) {
             msg.SendMsg("正在逃离岩浆", MsgLevel.info);
-            MinecraftContext.player().setPitch(-90);
+            SilentRotation.disable();
             PlayerInventory inv = MinecraftContext.player().getInventory();
-
             // 找烟花
             int slots = -1;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 9; i++) {
                 ItemStack s = inv.getStack(i);
-                if (s.isEmpty() || s.getItem() == Items.FIREWORK_ROCKET)
+                if (s.getItem() == Items.FIREWORK_ROCKET)
                     slots = i;
             }
             if (slots == -1)
                 throw new RuntimeException("找不到烟花");
-            else {
-                // 切换到烟花所在格子
-                int finalSlots = slots;
-                runOnMain(() -> {
-                    MinecraftContext.player().getInventory().setSelectedSlot(finalSlots);
-                    MinecraftContext.networkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlots));
-                    MinecraftContext.interactionManager().interactItem(MinecraftContext.player(), Hand.MAIN_HAND);
-                });
-                // 使用烟花
-                msg.SendMsg("已使用烟花！", MsgLevel.info);
-            }
 
             int yaw = 0;
             int pitch = -90;
@@ -523,34 +666,49 @@ public class ElytraTask {
                 if (!bs.isOf(Blocks.LAVA))
                     break;
             }
-            if (MinecraftContext.player().getY() > 32 || shouldCheck) {
+            if (MinecraftContext.player().getY() > 32 && shouldCheck) {
 
 
                 int[] dx = {1, -1, 0, 0};
                 int[] dz = {0, 0, 1, -1};
                 int[] yawl = {270, 0, 90, 180};
 
+                OUT:
                 for (int i = 0; i < 4; i++) {
                     int j;
-                    OUT:
+                    IN:
                     for (j = 0; j < 21; j++) {
                         BlockPos bp = MinecraftContext.player().getBlockPos().add(dx[i] * j, 0, dz[i] * j);
                         BlockState bs = MinecraftContext.world().getBlockState(bp);
                         if (bs.isAir()) {
                             for (int k = 1; k < 5; k++) {
                                 if (!MinecraftContext.world().getBlockState(bp.add(dx[i] * k, 0, dz[i] * k)).isAir())
-                                    continue OUT;
+                                    continue IN;
                             }
-                            break;
+                            yaw = yawl[i];
+                            pitch = 0;
+                            break OUT;
                         }
-                    }
-                    if (j < 20) {
-                        yaw = yawl[i];
-                        pitch = 0;
-                        break;
+                        if (!bs.isOf(Blocks.LAVA))
+                            break;
                     }
                 }
             }
+
+
+            MinecraftContext.player().setYaw(yaw);
+            MinecraftContext.player().setPitch(pitch);
+            delay(1);
+            // 切换到烟花所在格子
+            int finalSlots = slots;
+            runOnMain(() -> {
+                MinecraftContext.player().getInventory().setSelectedSlot(finalSlots);
+                MinecraftContext.networkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(finalSlots));
+                MinecraftContext.interactionManager().interactItem(MinecraftContext.player(), Hand.MAIN_HAND);
+            });
+            // 使用烟花
+            msg.SendMsg("已使用烟花！", MsgLevel.info);
+
 
             for (int i = 0; ; i++) {
                 MinecraftContext.player().setYaw(yaw);

@@ -24,6 +24,9 @@ public class SilentRotation {
         active = true;
     }
 
+    public static void disable(){
+        active = false;
+    }
 
     public static boolean isActive() {return active;}
 

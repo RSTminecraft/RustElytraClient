@@ -7,7 +7,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
 public final class NoKineticDamage {
-    public static boolean enabled = true;
+    public volatile static boolean enabled = false;
 
     // 翻转持续计数（对应原 triggerKinetic）
     private static int triggerKinetic = 0;

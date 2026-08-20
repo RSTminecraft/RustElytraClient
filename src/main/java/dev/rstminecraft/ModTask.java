@@ -76,7 +76,6 @@ public class ModTask {
     // endregion
 
     static void resetMixin() {
-        cameraMixinSwitch = false;
         timerMultiplier = 1f;
         blockedPlayerInput = false;
         infinityElytra.enabled = false;

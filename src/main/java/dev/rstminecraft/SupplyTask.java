@@ -920,7 +920,7 @@ public class SupplyTask {
         }
         msg.SendMsg("可替换列表为" + replaceSlot, MsgLevel.debug);
         if (replaceSlot.size() * 64 < FireworkInNeed)
-            throw new RuntimeException("你发生了不可能发生的错误,请检查代码");
+            throw new RuntimeException("请不要在背包里放潜影盒!");
         delay(1);
         for (Pair<Integer, int[]> Supply : ShulkerList) {
             // 等待末影箱窗口

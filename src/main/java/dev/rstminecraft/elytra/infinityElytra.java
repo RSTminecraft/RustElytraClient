@@ -17,8 +17,8 @@ import net.minecraft.screen.slot.SlotActionType;
 public class infinityElytra {
 
     // ========== 配置 ==========
-    public volatile static boolean enabled = true;
-    public final static int period = 16;
+    public volatile static boolean enabled = false;
+    public final static int period = 15;
     public final static boolean resetVanilla = true;
 
     // ========== 状态机 ==========

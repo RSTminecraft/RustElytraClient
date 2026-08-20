@@ -84,7 +84,7 @@ public class ElytraLanding {
         return true;
     }
 
-    private static boolean hasAirBubble(BlockPos pos) {
+    public static boolean hasAirBubble(BlockPos pos) {
         final int radius = 4; // Half of the full width, rounded down, as we're counting blocks in each direction from the center
         BlockPos.Mutable mut = new BlockPos.Mutable();
         for (int x = -radius; x <= radius; x++) {
