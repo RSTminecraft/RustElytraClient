@@ -76,7 +76,7 @@ public final class NoKineticDamage {
             resetRot = true;
         }
         if (canControl) {
-            setPitchSafe(player, -90f + 1e-3f);
+            setPitchSafe(player);
             setYawSafe(player, player.getYaw() + 180f);
         } else {
             setYawSafe(player, player.getYaw() + 180f);
@@ -112,7 +112,7 @@ public final class NoKineticDamage {
         e.setYaw(safeYaw(e.getYaw(), newYaw));
     }
 
-    private static void setPitchSafe(Entity e, float newPitch) {
-        e.setPitch(safePitch(newPitch));
+    private static void setPitchSafe(Entity e) {
+        e.setPitch(safePitch((float) -89.999));
     }
 }
